@@ -883,7 +883,9 @@ class LocalPeer(
                     throw Exception("❌ Cannot Load Device")
                 }
                 // store setRoomState
-                store.setRoomState(RoomStates.CONNECTED)
+                CoroutineScope(Dispatchers.Main).launch {
+                    store.setRoomState(RoomStates.CONNECTED)
+                }
                 emit(
                     "device-created", mapOf(
                         "device" to mediasoupDevice
