@@ -38,6 +38,7 @@ android {
             java.srcDirs("java/com/kotlin/kotlin_client/proto")
         }
     }
+    viewBinding.enable = true
 }
 
 dependencies {
