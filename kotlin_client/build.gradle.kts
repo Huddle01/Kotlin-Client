@@ -58,7 +58,7 @@ dependencies {
     api(libs.libmediasoup.android)
     api(libs.libwebrtc.ktx)
     // timber
-    implementation(libs.timber)
+    api(libs.timber)
 }
 
 protobuf {
