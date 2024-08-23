@@ -1,0 +1,180 @@
+import "rtc/sctp_capabilities.proto";
+import "client/app_data.proto";
+import "client/room_control.proto";
+import "rtc/sdp_info.proto";
+import "rtc/rtp_parameters.proto";
+import "rtc/sctp_stream_parameters.proto";
+import "client/permissions.proto";
+
+message TestEvent {
+    required string name = 1;
+    required string payload = 2;
+    optional string from = 3;
+    optional string to = 4;
+}
+
+message ConnectRoom {
+    required string roomId = 1;
+}
+
+message CreateTransport {
+    required ProtoSctpCapabilities sctpCapabilities = 1;
+    required string transportType = 2;
+}
+
+message ConnectTransport {
+    required string transportType = 1;
+    required ProtoDtlsParameters dtlsParameters = 2;
+}
+
+message CreateDataConsumer {
+    required string label = 1;
+}
+
+message Produce {
+    required string label = 1;
+    required string kind = 2;
+    required ProtoRtpParameters rtpParameters = 3;
+    required bool paused = 4;
+    optional AppData appData = 5;
+}
+
+message ProduceData {
+    required string transportId =1;
+    required ProtoSctpStreamParameters sctpStreamParameters = 2;
+    required string label = 3;
+    optional string protocol = 4;
+    optional AppData appData = 5;
+}
+
+message Consume {
+    required string producerPeerId = 1;
+    required string producerId = 2;
+    optional AppData appData = 3;
+}
+
+message CloseProducer {
+    required string producerId = 1;
+}
+
+message PauseProducer {
+    required string producerId = 1;
+}
+
+message ResumeProducer {
+    required string producerId = 1;
+}
+
+message CloseConsumer {
+    required string consumerId = 1;
+}
+
+message ResumeConsumer {
+    required string consumerId = 1;
+    required string producerPeerId = 2;
+}
+
+message SyncMeetingState {
+    repeated string localProducerIds = 1;
+}
+
+message RestartTransportIce {
+    required string transportType = 1;
+    required string transportId = 2;
+}
+
+/**
+    Client Proto Calls;
+**/
+
+message SendData {
+    repeated string to = 1;
+    optional string label = 2;
+    required string payload = 3;
+}
+
+
+message UpdateRoomControls {
+    oneof control {
+        RoomControlType room_control = 1;
+        ProduceSourcesControl produce_sources_control = 2;
+    }
+}
+
+message UpdatePeerPermission {
+    required string peerId = 1;
+    optional Permissions permissions = 2;
+}
+
+message ActivateSpeakerNotification {
+    optional int32 size = 1;
+}
+
+message UpdatePeerRole {
+    message Options {
+        optional Permissions custom = 1;
+    }
+    
+    required string peerId = 1;
+    required string role = 2;
+    optional Options options = 3;
+}
+
+message UpdatePeerMetadata {
+    required string peerId = 1;
+    required string metadata = 2;
+}
+
+message UpdateRoomMetadata {
+    required string metadata = 1;
+}
+
+message CloseStreamOfLabel {
+    required string label = 1;
+    repeated string peerIds = 2;
+}
+
+message AcceptLobbyPeer {
+    required string peerId = 1;
+}
+
+message DenyLobbyPeer {
+    required string peerId = 1;
+}
+
+message KickPeer {
+    required string peerId = 1;
+}
+
+message CloseRoom {}
+
+message Request {
+    oneof request {
+        ConnectRoom connect_room = 2;
+        CreateTransport create_transport = 3;
+        ConnectTransport connect_transport = 4;
+        CreateDataConsumer create_data_consumer = 25;
+        Produce produce = 5;
+        ProduceData produce_data = 6;
+        Consume consume = 7;
+        CloseProducer close_producer = 8;
+        PauseProducer pause_producer = 26;
+        ResumeProducer resume_producer = 27;
+        CloseConsumer close_consumer = 9;
+        ResumeConsumer resume_consumer = 10;
+        SyncMeetingState sync_meeting_state = 11;
+        RestartTransportIce restart_transport_ice = 12;
+        SendData send_data = 13;
+        UpdateRoomControls update_room_controls = 14;
+        UpdatePeerPermission update_peer_permission = 15;
+        ActivateSpeakerNotification activate_speaker_notification = 16;
+        UpdatePeerRole update_peer_role = 17;
+        UpdatePeerMetadata update_peer_metadata = 18;
+        UpdateRoomMetadata update_room_metadata = 19;
+        CloseStreamOfLabel close_stream_of_label = 20;
+        AcceptLobbyPeer accept_lobby_peer = 21;
+        DenyLobbyPeer deny_lobby_peer = 22;
+        KickPeer kick_peer = 23;
+        CloseRoom close_room = 24;
+    }
+}

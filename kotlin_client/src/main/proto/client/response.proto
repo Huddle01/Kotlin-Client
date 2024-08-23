@@ -1,0 +1,260 @@
+import "client/permissions.proto";
+import "client/app_data.proto";
+import "rtc/sdp_info.proto";
+import "rtc/sctp_stream_parameters.proto";
+import "rtc/rtp_parameters.proto";
+import "rtc/rtp_capabilities.proto";
+import "client/room_control.proto";
+
+message Hello {
+    required string peerId = 1;
+    required string roomId = 2;
+    required string sessionId = 3;
+    required Permissions acl = 4;
+    optional string role = 5;
+    optional string metadata = 6;
+}
+
+message RoomControls {
+    message ProduceSources {
+        required bool cam = 1;
+        required bool mic = 2;
+        required bool screen = 3;
+    }
+
+    required bool roomLocked = 1;
+    required bool allowProduce = 2;
+    required ProduceSources allowProduceSources = 3;
+    required bool allowConsume = 4;
+    required bool allowSendData = 5;
+}
+
+message PeersInfo {
+    message ProducerInfo {
+        required string id = 1;
+        required string label = 2;
+        optional bool paused = 3;
+    }
+
+    required string peerId = 1;
+    optional string metadata = 3;
+    optional string role = 5;
+    repeated ProducerInfo producers = 4;
+}
+
+message RoomInfo {
+    required bool roomLocked = 1;
+    required RoomControls config = 2;
+    repeated PeersInfo peers = 3;
+    repeated LobbyPeers lobbyPeers = 4;
+    optional string metadata = 5;
+    required int64 startTime = 6;
+}
+
+message LobbyPeers {
+    required string peerId = 1;
+    optional string metadata = 3;
+}
+
+message ConnectRoomResponse {
+    message RTCIceServer {
+        required string urls = 1;
+        optional string username = 2;
+        optional string credential = 3;
+    }
+
+    required string roomId = 1;
+    required RoomInfo roomInfo = 2;
+    required ProtoRtpCapabilities routerRTPCapabilities=3;
+    repeated RTCIceServer turnServers = 4;
+}
+
+message CreateTransportOnClient {
+    required string transportType = 1;
+    required ProtoTransportSDPInfo transportSDPInfo = 2;
+}
+
+message ConnectTransportResponse {
+    required string transportType = 1;
+    required string transportId = 2;
+}
+
+message ProduceResponse {
+    required string peerId = 1;
+    required string producerId = 2;
+    required string label = 3;
+    optional AppData appData = 4;
+}
+
+message ProduceDataResponse {
+    required string id = 1;
+    required string dataProducerId = 2;
+    required string label = 3;
+    required string peerId = 4;
+    required string protocol = 5;
+    required ProtoSctpStreamParameters sctpStreamParameters = 6;
+    optional AppData appData = 7;
+}
+
+message ConsumeDataResponse {
+    required string id = 1;
+    required string dataProducerId = 2;
+    required string label = 3;
+    required string peerId = 4;
+    required string protocol = 5;
+    required ProtoSctpStreamParameters sctpStreamParameters = 6;
+    optional AppData appData = 7;
+}
+
+message SyncMeetingStateResponse {
+    required RoomInfo roomInfo = 1;
+}
+
+message ConsumeResponse {
+    required string label = 1;
+    required string consumerId = 2;
+    required string producerId = 3;
+    required string kind = 4;
+    required ProtoRtpParameters rtpParameters = 5;
+    required string producerPeerId = 6;
+    optional AppData appData = 7;
+    optional bool producerPaused = 8;
+}
+
+message CloseProducerSuccess {
+    required string peerId = 1;
+    required string producerId = 2;
+    required string label = 3;
+}
+
+message PauseProducerSuccess {
+    required string peerId = 1;
+    required string producerId = 2;
+    required string label = 3;
+}
+
+message ResumeProducerSuccess {
+    required string peerId = 1;
+    required string producerId = 2;
+    required string label = 3;
+}
+
+message CloseConsumerSuccess {
+    required string peerId = 1;
+    required string consumerId = 2;
+}
+
+message RestartTransportIceResponse {
+    required string transportType = 1;
+    required ProtoIceParameters iceParameters = 2;
+}
+
+/**
+    Client Functions
+**/
+message NewPeerJoined {
+    required string peerId = 1;
+    optional string metadata = 2;
+    optional string role = 3;
+}
+
+message NewLobbyPeer {
+    required string peerId = 1;
+    optional string metadata = 2;
+}
+
+message NewPermissions {
+    required Permissions acl = 2;
+}
+
+message NewRoomControls {
+    required RoomControls controls = 1;
+}
+
+message NewPeerRole {
+    required string peerId = 1;
+    required string role = 2;
+}
+
+message ReceiveData {
+    required string from = 1;
+    required string payload = 2;
+    optional string label = 3;
+}
+
+message PeerMetadataUpdated {
+    required string peerId = 1;
+    required string metadata = 2;
+}
+
+message RoomMetadataUpdated {
+    required string metadata = 1;
+}
+
+message RoomClosedProducers {
+    message CloseProducerInfo {
+        required string peerId = 1;
+        required string producerId = 2;
+        required string label = 3;
+    }
+    message CloseProducerReason {
+        required int32 code = 1;
+        required string tag = 2;
+        required string message = 3;
+    }
+
+    repeated CloseProducerInfo producers = 1;
+    required CloseProducerReason reason = 2;
+}
+
+message PeerLeft {
+    required string peerId = 1;
+}
+
+message LobbyPeerLeft {
+    required string peerId = 1;
+    required string status = 2;
+    optional string message = 3;
+}
+
+message WaitingRoom {
+    required string reason = 1;
+    optional string metadata = 2;
+}
+
+message Error {
+    required string event = 1;
+    required string error = 2;
+}
+
+message Response {
+    oneof Response {
+        Hello hello = 1;
+        ConnectRoomResponse connectRoomResponse = 2;
+        CreateTransportOnClient createTransportOnClient = 3;
+        ProduceResponse produceResponse = 4;
+        ConsumeDataResponse consumeDataResponse = 25;
+        ProduceDataResponse produceDataResponse = 5;
+        SyncMeetingStateResponse syncMeetingStateResponse = 6;
+        ConsumeResponse consumeResponse = 7;
+        CloseProducerSuccess closeProducerSuccess = 8;
+        PauseProducerSuccess pauseProducerSuccess = 26;
+        ResumeProducerSuccess resumeProducerSuccess = 27;
+        CloseConsumerSuccess closeConsumerSuccess = 9;
+        ConnectTransportResponse connectTransportResponse = 10;
+        RestartTransportIceResponse restartTransportIceResponse = 11;
+        NewPeerJoined newPeerJoined = 12;
+        NewLobbyPeer newLobbyPeer = 13;
+        NewPermissions newPermissions = 14;
+        NewRoomControls newRoomControls = 15;
+        NewPeerRole newPeerRole = 16;
+        ReceiveData receiveData = 17;
+        PeerMetadataUpdated peerMetadataUpdated = 18;
+        RoomMetadataUpdated roomMetadataUpdated = 19;
+        RoomClosedProducers roomClosedProducers = 20;
+        PeerLeft peerLeft = 21;
+        LobbyPeerLeft lobbyPeerLeft = 22;
+        WaitingRoom waitingRoom = 23;
+        Error error = 24;
+    }
+}

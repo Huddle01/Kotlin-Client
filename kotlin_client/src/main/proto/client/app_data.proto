@@ -1,0 +1,11 @@
+message Value {
+    oneof value_type {
+      string string_value = 1;
+      int32 int_value = 2;
+      float float_value = 3;
+    }
+  }
+  
+message AppData {
+    map<string, Value> appData = 1;
+}

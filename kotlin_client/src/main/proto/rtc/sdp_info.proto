@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+message ProtoDtlsFingerPrints {
+    string algorithm = 1;
+    string value = 2;
+}
+
+message ProtoIceParameters {
+    string usernameFragment = 1;
+    string password = 2;
+    bool iceLite = 3;
+}
+
+message ProtoIceCandidates {
+    string foundation = 1;
+    int32 priority = 2;
+    string ip = 3;
+    int32 port = 4;
+    string type = 5;
+    string protocol = 6;
+    string tcpType = 7;
+    string address = 8;
+}
+
+message ProtoDtlsParameters {
+    string role = 1;
+    repeated ProtoDtlsFingerPrints fingerprints = 2;
+}
+
+message ProtoSctpParameters {
+    int32 port = 1;
+    int32 OS = 2;
+    int32 MIS = 3;
+    int32 maxMessageSize = 4;
+}
+
+
+message ProtoTransportSDPInfo {
+    string id = 1;
+    repeated ProtoIceCandidates iceCandidates = 2;
+    ProtoIceParameters iceParameters = 3;
+    ProtoDtlsParameters dtlsParameters = 4;
+    ProtoSctpParameters sctpParameters = 5;
+}

@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+message ProtoRtpCodecCapability {
+    message ProtoRtcpFeedback {
+        string type = 1;
+        string parameter = 2;
+    }
+
+    string kind = 1;
+    string mimeType = 2;
+    int32 preferredPayloadType = 3;
+    int32 clockRate = 4;
+    int32 channels = 5;
+    map<string, string> parameters = 6;
+    repeated ProtoRtcpFeedback rtcpFeedback = 7;
+}
+
+message ProtoRtpHeaderExtension {
+    string kind = 1;
+    string uri = 2;
+    int32 preferredId = 3;
+    bool preferredEncrypt = 4;
+    string direction = 5;
+}
+
+message ProtoRtpCapabilities {
+    repeated ProtoRtpCodecCapability codecs = 1;
+    repeated ProtoRtpHeaderExtension headerExtensions = 2;
+}

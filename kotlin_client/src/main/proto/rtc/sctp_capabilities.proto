@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+message ProtoNumSctpStreams {
+    int32 OS = 1; // Initially requested number of outgoing SCTP streams
+    int32 MIS = 2; // Maximum number of incoming SCTP streams
+}
+
+message ProtoSctpCapabilities {
+    ProtoNumSctpStreams numStreams = 1;
+}

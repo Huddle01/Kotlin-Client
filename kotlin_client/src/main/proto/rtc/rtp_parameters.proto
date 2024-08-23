@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+import "rtc/rtp_capabilities.proto";
+
+message ProtoRtcpFeedback {
+    string type = 1;
+    string parameter = 2;
+}
+
+message ProtoCodecParameters {
+    string mimeType = 1;
+    int32 payloadType = 2;
+    int32 clockRate = 3;
+    int32 channels = 4;
+    map<string, string> parameters = 6;
+    repeated ProtoRtcpFeedback rtcpFeedback = 7;
+}
+
+message ProtoHeaderExtensionParameters {
+    string uri = 1;
+    int32 id = 2;
+    bool encrypt = 3;
+    map<string, string> parameters = 4;
+}
+
+message ProtoEncodings {
+    message ProtoRTX {
+        int64 ssrc = 1;
+    }
+
+    int64 ssrc = 1;
+    string rid = 2;
+    int32 codecPayloadType = 3;
+    ProtoRTX rtx = 4;
+    bool dtx = 5;
+    string scalabilityMode = 6;
+    int32 scaleResolutionDownBy = 7;
+    int32 maxBitrate = 8;
+    bool active = 9;
+    int32 maxFramerate= 10;
+}
+
+message RtcpParameters {
+    string cname = 1;
+    bool reducedSize = 2;
+    bool mux = 3;
+}
+
+message ProtoRtpParameters {
+    string mid = 1;
+    repeated ProtoCodecParameters codecs = 2;
+    repeated ProtoHeaderExtensionParameters headerExtensions = 3;
+    repeated ProtoEncodings encodings = 4;
+    RtcpParameters rtcp = 5;
+}
+
+message ProtoSrtpParameters {
+   string cryptoSuite = 1;
+   string keyBase64 = 2;
+}
+
+message ProtoTransportTuple {
+   string localIp = 1;
+   int32 localPort = 2;
+   string remoteIp = 3;
+   int32 remotePort = 4;
+   string protocol = 5;
+   string localAddress = 6;
+}

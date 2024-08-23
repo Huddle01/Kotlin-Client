@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+message ProtoSctpStreamParameters {
+    int32 streamId = 1;
+    bool ordered = 2;
+    int32 maxPacketLifeTime = 3;
+    int32 maxRetransmits = 4;
+}

@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+import "rtc/rtp_parameters.proto";
+
+message CreatePipeTransportRequest {
+    string roomId = 1;
+    string remoteIp = 2;
+    string remoteMomoId = 3;
+ }
+ 
+ message CreatePipeTransportResponse {
+    string roomId = 1;
+    string localMomoId = 2;
+    string remoteMomoId = 3;
+    string transportId = 4;
+    ProtoSrtpParameters srtpParameters = 5;
+    ProtoTransportTuple tuple = 6;
+ }
+ 
+ message ConnectPipeTransportRequest {
+    string roomId = 1;
+    string remoteIp = 2;
+    string remoteMomoId = 3;
+ 
+    string transportId = 4;
+    ProtoSrtpParameters srtpParameters = 5;
+    ProtoTransportTuple tuple = 6;
+ }
+ 
+ message ConnectPipeTransportResponse {
+    string roomId = 1;
+    string remoteMomoId = 2;
+    string remoteMomoIp = 3;
+ }
+ 
+ message PipeProduceRequest {
+    string roomId = 1;
+    string kind = 2;
+    string remoteMomoId = 3;
+    string producerId = 4;
+    string producerPeerId = 5;
+    ProtoRtpParameters rtpParameters = 6;
+    string label = 7;
+ }
+ 
+ message PipeProduceResponse {
+    string roomId = 1;
+    string pipeProducerId = 2;
+    bool status = 3;
+ }
+ 
+ message PipeConsumeRequest {
+    string roomId = 1;
+    string remoteMomoId = 2;
+    string producerId = 3;
+    string producerPeerId = 4;
+ }
+ 
+ message PipeConsumeResponse {
+    string roomId = 1;
+    string producerPeerId = 2;
+    ProtoRtpParameters rtpParameters = 3;
+    string label = 4;
+    string kind = 5;
+ }
+ 

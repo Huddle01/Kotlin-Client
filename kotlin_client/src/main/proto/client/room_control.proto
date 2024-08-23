@@ -1,0 +1,17 @@
+message ProduceSources {
+    required bool mic = 1;
+    required bool cam = 2;
+    required bool screen = 3;
+}
+
+
+message RoomControlType {
+    required string type = 1;
+    required bool value = 5;
+}
+
+
+message ProduceSourcesControl {
+    required string type = 1;
+    required ProduceSources value = 2;
+}

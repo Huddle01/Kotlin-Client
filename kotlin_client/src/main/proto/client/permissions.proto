@@ -1,0 +1,16 @@
+
+message Permissions {
+    message ProduceSources {
+        required bool cam = 1;
+        required bool mic = 2;
+        required bool screen = 3;
+    }
+
+    required bool admin = 1;
+    required bool canConsume = 2;
+    required bool canProduce = 3;
+    required ProduceSources canProduceSources = 4;
+    required bool canSendData = 5;
+    required bool canRecvData = 6;
+    required bool canUpdateMetadata = 7;
+}
