@@ -1,0 +1,15 @@
+package com.huddle01.kotlin_client.models.enum_class
+
+enum class RoomControlType {
+    LOCK_ROOM,
+    UNLOCK_ROOM,
+    ENABLE_PRODUCE,
+    DISABLE_PRODUCE,
+    UPDATE_PRODUCE_SOURCES_CAM,
+    UPDATE_PRODUCE_SOURCES_MIC,
+    UPDATE_PRODUCE_SOURCES_SCREEN,
+    ENABLE_CONSUME,
+    DISABLE_CONSUME,
+    ENABLE_SEND_DATA,
+    DISABLE_SEND_DATA
+}
