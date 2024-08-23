@@ -55,8 +55,8 @@ dependencies {
     // protobuf
     implementation(libs.protobuf.kotlin)
     // mediasoup
-    implementation(libs.libmediasoup.android)
-    implementation(libs.libwebrtc.ktx)
+    api(libs.libmediasoup.android)
+    api(libs.libwebrtc.ktx)
     // timber
     implementation(libs.timber)
 }

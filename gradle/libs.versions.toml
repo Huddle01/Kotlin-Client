@@ -19,7 +19,6 @@ constraintlayout = "2.1.4"
 protobufGradlePlugin = "0.9.4"
 protobufKotlin = "4.26.1"
 timber = "5.0.1"
-databindingRuntime = "8.5.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
