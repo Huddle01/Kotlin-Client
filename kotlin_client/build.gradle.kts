@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.jetbrains.kotlin.android)
+    alias(libs.plugins.kotlin.kapt)
+    id("com.google.protobuf") version "0.9.4"
     `maven-publish`
 }
 
@@ -31,6 +33,11 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    sourceSets {
+        getByName("main") {
+            java.srcDirs("java/com/kotlin/kotlin_client/proto")
+        }
+    }
 }
 
 dependencies {
@@ -40,6 +47,40 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    implementation(libs.java.websocket)
+    implementation(libs.ktor.client.android)
+    implementation(libs.gson)
+    // protobuf
+    implementation(libs.protobuf.kotlin)
+    // mediasoup
+    implementation(libs.libmediasoup.android)
+    implementation(libs.libwebrtc.ktx)
+    // timber
+    implementation(libs.timber)
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:3.21.7"
+    }
+    plugins {
+        protoc {
+            artifact = "com.google.protobuf:protoc:3.21.7"
+        }
+        generateProtoTasks {
+            all().forEach {
+                it.builtins {
+                    create("kotlin") {
+                        option("lite")
+                    }
+                    create("java") {
+                        option("lite")
+                    }
+                }
+            }
+        }
+    }
 }
 
 publishing {
