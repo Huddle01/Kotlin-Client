@@ -17,7 +17,9 @@ enum class ESocketCloseCode(val value: Int) {
     CONNECTION_ERROR(4006),
     ROOM_CLOSED(4007),
     ROOM_ENTRY_DENIED(4008),
-    KICKED(4009)
+    KICKED(4009),
+    MAX_PEERS_REACHED(4010),
+    ROOM_EXPIRED(4011)
 }
 
 // SocketCloseReason
@@ -29,7 +31,9 @@ val socketCloseReason: Map<ESocketCloseCode, String> = mapOf(
     ESocketCloseCode.CONNECTION_ERROR to "CONNECTION_ERROR",
     ESocketCloseCode.CONNECTION_EXPIRED to "CONNECTION_EXPIRED",
     ESocketCloseCode.ROOM_ENTRY_DENIED to "ROOM_ENTRY_DENIED",
-    ESocketCloseCode.KICKED to "KICKED"
+    ESocketCloseCode.KICKED to "KICKED",
+    ESocketCloseCode.MAX_PEERS_REACHED to "MAX_PEERS_REACHED",
+    ESocketCloseCode.ROOM_CLOSED to "ROOM_EXPIRED",
 )
 
 fun estimateSize(obj: Any): Int {
