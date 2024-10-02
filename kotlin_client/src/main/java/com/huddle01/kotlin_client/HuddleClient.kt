@@ -8,6 +8,7 @@ import com.huddle01.kotlin_client.core.Socket
 import com.huddle01.kotlin_client.models.enum_class.ConnectionState
 import com.huddle01.kotlin_client.models.enum_class.RoomStates
 import com.huddle01.kotlin_client.types.ESocketCloseCode
+import com.huddle01.kotlin_client.types.socketCloseReason
 import io.github.crow_misia.mediasoup.MediasoupClient
 import io.github.crow_misia.webrtc.log.LogHandler
 import org.webrtc.Logging
@@ -84,18 +85,18 @@ class HuddleClient(projectId: String, context: Context) {
         _socket = Socket.getInstance()
         _room = Room.getInstance()
         _localPeer = LocalPeer.getInstance(context)
-        _socket.on("closed") { code ->
+        _socket.on("closed") { socketCodeArray ->
+            val code = (socketCodeArray[0] as? Int) ?: run {
+                room.close()
+                return@on
+            }
             Timber.i("Socket Connection closed, closing the room and LocalPeer")
-            when (code) {
-                arrayOf(ESocketCloseCode.ROOM_CLOSED.value) -> room.close(reason = "CLOSED")
-                arrayOf(ESocketCloseCode.ROOM_ENTRY_DENIED.value) -> room.close(reason = "DENIED")
-                arrayOf(ESocketCloseCode.CONNECTION_EXPIRED.value) -> {
-                    Timber.i("🔔 Room closed due to connection expired")
-                    room.close(reason = "CONNECTION_EXPIRED")
-                }
-
-                arrayOf(ESocketCloseCode.KICKED.value) -> room.close(reason = "KICKED")
-                else -> room.close()
+            val closeCode = ESocketCloseCode.entries.find { it.value == code }
+            if (closeCode != null) {
+                val reason = socketCloseReason[closeCode] ?: "UNKNOWN_REASON"
+                room.close(reason = reason)
+            } else {
+                room.close()
             }
             _localPeer.close()
         }
