@@ -11,7 +11,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        minSdk = 24
+        minSdk = 21
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
@@ -53,7 +53,7 @@ dependencies {
     implementation(libs.ktor.client.android)
     implementation(libs.gson)
     // protobuf
-    implementation(libs.protobuf.kotlin)
+    api(libs.protobuf.kotlin)
     // mediasoup
     api(libs.libmediasoup.android)
     api(libs.libwebrtc.ktx)
