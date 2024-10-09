@@ -59,6 +59,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.webrtc.AudioTrack
+import org.webrtc.CameraVideoCapturer.CameraSwitchHandler
 import org.webrtc.DefaultVideoDecoderFactory
 import org.webrtc.DefaultVideoEncoderFactory
 import org.webrtc.PeerConnection
@@ -579,6 +580,19 @@ class LocalPeer(
             localVideoManager?.enabled = false
             return null
         }
+    }
+
+    fun changeCam(){
+        localVideoManager?.switchCamera(
+            object : CameraSwitchHandler {
+                override fun onCameraSwitchDone(b: Boolean) {
+                    store.setCamInProgress(false)
+                }
+                override fun onCameraSwitchError(s: String) {
+                    Timber.w("❌ Error Enabling Video $s")
+                    store.setCamInProgress(false)
+                }
+            })
     }
 
 
