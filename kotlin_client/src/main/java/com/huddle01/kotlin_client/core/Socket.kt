@@ -411,12 +411,17 @@ class Socket : EventEmitter() {
 
             Request.RequestCase.SEND_DATA -> message.sendData =
                 SendData.newBuilder().apply {
-                    val toList = incomingData?.get("to") as? List<String>
-                    toList?.forEachIndexed { index, toValue ->
-                        setTo(index, toValue)
+                    val toList = incomingData?.get("to") as? ArrayList<*>
+                    if (toList != null && toList.isNotEmpty()) {
+                        for ((index, toValue) in toList.withIndex()) {
+                            while (toCount <= index) {
+                                addTo("")
+                            }
+                            setTo(index, toValue.toString())
+                        }
                     }
-                    setPayload(incomingData?.get("payload") as? String)
-                    setLabel(incomingData?.get("label") as? String)
+                    setPayload(incomingData?.get("payload") as? String ?: "")
+                    setLabel(incomingData?.get("label") as? String ?: "")
                 }.build()
 
             else -> throw IllegalArgumentException("Invalid request case: $event")

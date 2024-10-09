@@ -333,7 +333,8 @@ class LocalPeer(
             return Pair(false, "Data message exceeds 1kb in size")
         }
 
-        val parsedTo = if (data.to.size == 1 && data.to[0] == "*") listOf("*") else data.to
+        val parsedTo = if (data.to.size == 1 && data.to[0] == "*") arrayListOf("*") else data.to
+
 
         return try {
             socket.publish(
