@@ -53,7 +53,7 @@ dependencies {
     implementation(libs.ktor.client.android)
     implementation(libs.gson)
     // protobuf
-    api(libs.protobuf.kotlin)
+    implementation(libs.protobuf.kotlin)
     // mediasoup
     api(libs.libmediasoup.android)
     api(libs.libwebrtc.ktx)
