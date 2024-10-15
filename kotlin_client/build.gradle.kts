@@ -49,11 +49,10 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
-    api(libs.java.websocket)
-    api(libs.ktor.client.android)
-    api(libs.gson)
+    implementation(libs.java.websocket)
+    implementation(libs.gson)
     // protobuf
-    api(libs.protobuf.kotlin)
+    implementation(libs.protobuf.kotlin)
     // mediasoup
     api(libs.libmediasoup.android)
     api(libs.libwebrtc.ktx)

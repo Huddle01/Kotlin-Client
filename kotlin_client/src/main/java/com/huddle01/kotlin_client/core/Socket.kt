@@ -26,10 +26,8 @@ import com.huddle01.kotlin_client.utils.EventEmitter
 import com.huddle01.kotlin_client.models.GeoLocation
 import com.huddle01.kotlin_client.models.enum_class.ConnectionState
 import com.huddle01.kotlin_client.types.ESocketCloseCode
-import io.ktor.client.HttpClient
-import io.ktor.client.request.get
-import io.ktor.client.request.headers
-import io.ktor.http.HttpHeaders
+import java.net.HttpURLConnection
+import java.net.URL
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -169,18 +167,32 @@ class Socket : EventEmitter() {
 
     private suspend fun getGeoData(): GeoData {
         return withContext(Dispatchers.IO) {
+            val url = URL("https://shinigami.huddle01.com/api/get-geolocation")
+            var connection: HttpURLConnection? = null
+
             try {
-                val resp =
-                    HttpClient().get<String>("https://shinigami.huddle01.com/api/get-geolocation")
-                val responseData = JsonUtils.toJsonObject(resp)
+                connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+
+                val responseCode = connection.responseCode
+                if (responseCode != HttpURLConnection.HTTP_OK) {
+                    throw Exception("🔴 Error while finding the region to connect to: $responseCode")
+                }
+
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                val responseData = JsonUtils.toJsonObject(response)
                 val geolocationData = GeoLocation.fromMap(responseData)
                 if (geolocationData.globalRegion.isEmpty()) {
                     throw Exception("🔴 Error while finding the region to connect to")
                 }
                 GeoData(region = geolocationData.globalRegion, country = geolocationData.country)
             } catch (err: Throwable) {
-                Timber.e("getRegion() | Error: $err")
+                Timber.e("getGeoData() | Error: $err")
                 throw err
+            } finally {
+                connection?.disconnect()
             }
         }
     }
@@ -446,33 +458,45 @@ class Socket : EventEmitter() {
      */
     private suspend fun getConfigUrl(token: String, region: String, country: String): String =
         withContext(Dispatchers.IO) {
-            if (_endpoint != null) {
-                return@withContext _endpoint!!
-            }
-            val apiServerUrl = "https://apira.huddle01.media/api/v1"
+            if (_endpoint != null) return@withContext _endpoint!!
 
-            val client = HttpClient()
-            val response: String = client.get("$apiServerUrl/getSushiUrl") {
-                headers {
-                    append(HttpHeaders.Authorization, "Bearer $token")
+            val apiServerUrl = "https://apira.huddle01.media/api/v1/getSushiUrl"
+            var connection: HttpURLConnection? = null
+
+            try {
+                val url = URL(apiServerUrl)
+                connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Authorization", "Bearer $token")
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+
+                val responseCode = connection.responseCode
+                if (responseCode != HttpURLConnection.HTTP_OK) {
+                    throw Exception("🔴 Error while fetching the configuration URL: $responseCode")
                 }
+
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                val responseData = JsonUtils.toJsonObject(response)
+                val urlString = responseData["url"] as String
+
+                _endpoint = urlString.replaceFirst("https://", "wss://")
+                    .replaceFirst("http://", "ws://")
+                val wssAddress = "$_endpoint/ws"
+                val wsAddress = "$wssAddress?${
+                    listOf(
+                        "token=$token", "version=2", "region=$region", "country=$country"
+                    ).joinToString("&")
+                }"
+                _endpoint = wsAddress
+                return@withContext wsAddress
+            } catch (err: Throwable) {
+                Timber.e("getConfigUrl() | Error: $err")
+                throw err
+            } finally {
+                connection?.disconnect()
             }
-
-            val responseData = JsonUtils.toJsonObject(response)
-            val url = responseData["url"] as String
-
-            _endpoint = url.replaceFirst("https://", "wss://").replaceFirst("http://", "ws://")
-            val wssAddress = "$_endpoint/ws"
-            val wsAddress = "$wssAddress?${
-                listOf(
-                    "token=$token", "version=2", "region=$region", "country=$country"
-                ).joinToString("&")
-            }"
-            _endpoint = wsAddress
-            client.close()
-            return@withContext wsAddress
         }
-
     /**
      * Handle the incoming message from the server based on the events received from the server and call the subscribed event handler
      */
