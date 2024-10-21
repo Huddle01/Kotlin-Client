@@ -1662,7 +1662,7 @@ class LocalPeer(
                 "transportType" to transportTypeName
             )
         )
-        delay(2000)
+        delay(500)
     }
 
     /**
