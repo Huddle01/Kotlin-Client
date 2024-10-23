@@ -106,7 +106,7 @@ class RemotePeer(
      * Adds label data and manages consumption based on auto-consume setting
      */
     fun addLabelData(
-        label: String, producerId: String, context: Context
+        label: String, producerId: String, context: Context,
     ) {
         _labelsToProducerId[label] = mutableMapOf("producerId" to producerId)
         try {

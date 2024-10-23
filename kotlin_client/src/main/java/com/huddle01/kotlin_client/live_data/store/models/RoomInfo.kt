@@ -4,5 +4,5 @@ import com.huddle01.kotlin_client.models.enum_class.RoomStates
 
 class RoomInfo(
     var roomId: String = "",
-    var connectionState: RoomStates = RoomStates.IDLE
+    var connectionState: RoomStates = RoomStates.IDLE,
 )

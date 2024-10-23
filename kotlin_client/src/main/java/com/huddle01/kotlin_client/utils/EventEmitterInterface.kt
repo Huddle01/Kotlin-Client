@@ -15,12 +15,12 @@ interface EventEmitterInterface {
     fun once(eventName: String, listener: (args: Array<out Any>) -> Unit): EventEmitterInterface
 
     fun addListener(
-        eventName: String, listener: (args: Array<out Any>) -> Unit, isOnce: Boolean = false
+        eventName: String, listener: (args: Array<out Any>) -> Unit, isOnce: Boolean = false,
     ): EventEmitterInterface
 
 
     fun removeListener(
-        eventName: String, listener: (args: Array<out Any>) -> Unit
+        eventName: String, listener: (args: Array<out Any>) -> Unit,
     ): EventEmitterInterface
 
     fun removeAllListeners(eventName: String): EventEmitterInterface

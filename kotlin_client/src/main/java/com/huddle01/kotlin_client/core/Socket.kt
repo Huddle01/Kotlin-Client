@@ -1,33 +1,31 @@
 package com.huddle01.kotlin_client.core
 
-import RequestOuterClass.ConnectRoom
+import RequestOuterClass.CloseConsumer
+import RequestOuterClass.CloseProducer
 import RequestOuterClass.CloseRoom
-import RequestOuterClass.Request
-import ResponseOuterClass.Response
-import RequestOuterClass.UpdateRoomMetadata
-import RequestOuterClass.KickPeer
+import RequestOuterClass.ConnectRoom
+import RequestOuterClass.ConnectTransport
+import RequestOuterClass.Consume
+import RequestOuterClass.CreateTransport
 import RequestOuterClass.DenyLobbyPeer
-import RequestOuterClass.UpdatePeerRole
-import RequestOuterClass.SyncMeetingState
+import RequestOuterClass.KickPeer
+import RequestOuterClass.Produce
+import RequestOuterClass.Request
 import RequestOuterClass.RestartTransportIce
 import RequestOuterClass.ResumeConsumer
-import RequestOuterClass.CreateTransport
-import RequestOuterClass.ConnectTransport
-import RequestOuterClass.Produce
-import RequestOuterClass.Consume
-import RequestOuterClass.CloseProducer
-import RequestOuterClass.CloseConsumer
 import RequestOuterClass.SendData
+import RequestOuterClass.SyncMeetingState
 import RequestOuterClass.UpdatePeerMetadata
+import RequestOuterClass.UpdatePeerRole
+import RequestOuterClass.UpdateRoomMetadata
+import ResponseOuterClass.Response
 import com.huddle01.kotlin_client.common.ProtoParsing
-import com.huddle01.kotlin_client.utils.JsonUtils
 import com.huddle01.kotlin_client.models.GeoData
-import com.huddle01.kotlin_client.utils.EventEmitter
 import com.huddle01.kotlin_client.models.GeoLocation
 import com.huddle01.kotlin_client.models.enum_class.ConnectionState
 import com.huddle01.kotlin_client.types.ESocketCloseCode
-import java.net.HttpURLConnection
-import java.net.URL
+import com.huddle01.kotlin_client.utils.EventEmitter
+import com.huddle01.kotlin_client.utils.JsonUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -37,7 +35,9 @@ import org.java_websocket.client.WebSocketClient
 import org.java_websocket.enums.ReadyState
 import org.java_websocket.handshake.ServerHandshake
 import timber.log.Timber
+import java.net.HttpURLConnection
 import java.net.URI
+import java.net.URL
 import java.nio.ByteBuffer
 import java.util.Timer
 import kotlin.concurrent.schedule
@@ -497,6 +497,7 @@ class Socket : EventEmitter() {
                 connection?.disconnect()
             }
         }
+
     /**
      * Handle the incoming message from the server based on the events received from the server and call the subscribed event handler
      */

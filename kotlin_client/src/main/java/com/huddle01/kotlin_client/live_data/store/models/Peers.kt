@@ -3,7 +3,7 @@ package com.huddle01.kotlin_client.live_data.store.models
 import io.github.crow_misia.mediasoup.Consumer
 import org.json.JSONObject
 import timber.log.Timber
-import java.util.*
+import java.util.Collections
 
 class Peers {
     private val peersInfo = Collections.synchronizedMap(LinkedHashMap<String, Peer>())

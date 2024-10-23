@@ -10,6 +10,7 @@ class SupplierMutableLiveData<T>(supplier: () -> T) : MutableLiveData<T>() {
         }
 
     }
+
     init {
         value = supplier()
     }

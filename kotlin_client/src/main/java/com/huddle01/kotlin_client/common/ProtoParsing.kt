@@ -1,6 +1,10 @@
 package com.huddle01.kotlin_client.common
 
+import AppDataOuterClass
 import RtpCapabilities
+import RtpParameters
+import SctpCapabilities
+import SdpInfo
 import com.huddle01.kotlin_client.utils.JsonUtils
 import org.json.JSONObject
 import org.webrtc.MediaStreamTrack
@@ -136,7 +140,7 @@ object ProtoParsing {
     }
 
     fun getParsedDtlsParameters(
-        protoDtlsParametersList: List<SdpInfo.ProtoDtlsFingerPrints>, role: String
+        protoDtlsParametersList: List<SdpInfo.ProtoDtlsFingerPrints>, role: String,
     ): String {
         val fingerprints = protoDtlsParametersList.joinToString(",") { protoDtlsParams ->
             """{"algorithm":"${protoDtlsParams.algorithm}","value":"${protoDtlsParams.value}"}"""
@@ -239,7 +243,7 @@ object ProtoParsing {
 
     fun parseRtpCapabilities(
         codecs: List<RtpCapabilities.ProtoRtpCodecCapability>,
-        headerExtensions: List<RtpCapabilities.ProtoRtpHeaderExtension>
+        headerExtensions: List<RtpCapabilities.ProtoRtpHeaderExtension>,
     ): String {
         fun parseCodec(codec: RtpCapabilities.ProtoRtpCodecCapability): String {
 
@@ -307,7 +311,7 @@ object ProtoParsing {
         headerExtensions: List<RtpParameters.ProtoHeaderExtensionParameters>,
         encodings: List<RtpParameters.ProtoEncodings>,
         rtcp: RtpParameters.RtcpParameters,
-        mid: String
+        mid: String,
     ): String {
         val codecsJson = codecs.joinToString(",", "\"codecs\":[", "]", transform = ::parseCodec)
         val headerExtensionsJson = headerExtensions.joinToString(

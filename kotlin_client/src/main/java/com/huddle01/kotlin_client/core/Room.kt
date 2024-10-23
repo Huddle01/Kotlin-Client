@@ -1,13 +1,14 @@
 package com.huddle01.kotlin_client.core
 
 import RequestOuterClass.Request
-import com.huddle01.kotlin_client.utils.JsonUtils
+import ResponseOuterClass
 import com.huddle01.kotlin_client.models.LobbyPeer
 import com.huddle01.kotlin_client.models.RoomConfig
 import com.huddle01.kotlin_client.models.RoomStats
 import com.huddle01.kotlin_client.models.enum_class.RoomControlType
 import com.huddle01.kotlin_client.models.enum_class.RoomStates
 import com.huddle01.kotlin_client.utils.EventEmitter
+import com.huddle01.kotlin_client.utils.JsonUtils
 import org.json.JSONException
 import org.json.JSONObject
 import timber.log.Timber
@@ -161,7 +162,7 @@ class Room(
      */
     fun setNewLobbyPeers(
         peers: List<ResponseOuterClass.LobbyPeers>? = null,
-        newLobbyPeer: ResponseOuterClass.NewLobbyPeer? = null
+        newLobbyPeer: ResponseOuterClass.NewLobbyPeer? = null,
     ) {
         peers?.forEach { peerMap ->
             peerMap.peerId?.let { peerId ->

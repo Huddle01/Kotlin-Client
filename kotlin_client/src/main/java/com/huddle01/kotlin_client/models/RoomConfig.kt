@@ -5,5 +5,5 @@ data class RoomConfig(
     var allowProduce: Boolean = true,
     var allowProduceSources: ProduceSources = ProduceSources(cam = true, mic = true, screen = true),
     var allowConsume: Boolean = true,
-    var allowSendData: Boolean = true
+    var allowSendData: Boolean = true,
 )

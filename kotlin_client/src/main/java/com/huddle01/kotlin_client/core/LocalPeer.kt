@@ -25,6 +25,8 @@ import android.content.Context
 import android.media.MediaRecorder.AudioSource
 import android.os.Handler
 import android.os.Looper
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.huddle01.kotlin_client.common.EnhancedMap
 import com.huddle01.kotlin_client.common.ProtoParsing
 import com.huddle01.kotlin_client.constants.maxDataMessageSize
@@ -39,8 +41,6 @@ import com.huddle01.kotlin_client.types.TransportType
 import com.huddle01.kotlin_client.types.estimateSize
 import com.huddle01.kotlin_client.utils.EventEmitter
 import com.huddle01.kotlin_client.utils.PeerConnectionUtils
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import io.github.crow_misia.mediasoup.Consumer
 import io.github.crow_misia.mediasoup.Device
 import io.github.crow_misia.mediasoup.Producer
@@ -76,7 +76,7 @@ import java.util.Locale
  *  Where Client Means the currently Running Application.
  */
 class LocalPeer(
-    context: Context
+    context: Context,
 ) : EventEmitter() {
 
     private val scope = CoroutineScope(Job() + Dispatchers.Main)
@@ -432,7 +432,7 @@ class LocalPeer(
 
 
     suspend fun produce(
-        label: String, audioTrack: AudioTrack?, videoTrack: VideoTrack?, appData: String?
+        label: String, audioTrack: AudioTrack?, videoTrack: VideoTrack?, appData: String?,
     ) {
         Timber.i("produce called")
         try {
@@ -642,7 +642,7 @@ class LocalPeer(
      * @returns Consumer?; Returns null if consumer is not found
      */
     fun getConsumer(
-        label: String, peerId: String
+        label: String, peerId: String,
     ): Consumer? {
         val consumer = consumers.get(label, peerId)
         return consumer
@@ -1520,7 +1520,7 @@ class LocalPeer(
         }
 
         override fun onProduce(
-            transport: Transport, kind: String, rtpParameters: String, appData: String?
+            transport: Transport, kind: String, rtpParameters: String, appData: String?,
         ): String {
             try {
                 socket.publish(
@@ -1544,7 +1544,7 @@ class LocalPeer(
             sctpStreamParameters: String,
             label: String,
             protocol: String,
-            appData: String?
+            appData: String?,
         ): String {
             TODO("Not yet implemented")
         }
@@ -1582,7 +1582,7 @@ class LocalPeer(
         dtlsParameters: String,
         sctpParameters: String? = null,
         rtcConfig: PeerConnection.RTCConfiguration? = null,
-        appData: String? = null
+        appData: String? = null,
     ): Transport? {
         Timber.i("createDeviceTransport called for $transportType")
         val transport = when (transportType) {
@@ -1618,7 +1618,7 @@ class LocalPeer(
     }
 
     private fun connectionStateChangeHandler(
-        transport: Transport?, state: String, transportType: String
+        transport: Transport?, state: String, transportType: String,
     ) {
         try {
             Timber.d("🔔 $transportType Transport Connection State Changed, state: $state")
@@ -1715,7 +1715,7 @@ class LocalPeer(
      * Helper function to close the consumer of a remote peer
      */
     private fun closeRemotePeerConsumer(
-        peerId: String, label: String
+        peerId: String, label: String,
     ) {
         try {
             val remotePeer = room.getRemotePeerById(peerId)

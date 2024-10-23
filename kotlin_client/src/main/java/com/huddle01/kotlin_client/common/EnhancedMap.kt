@@ -1,7 +1,7 @@
 package com.huddle01.kotlin_client.common
 
 class EnhancedMap<T>(
-    private val compareFn: (String, String) -> Boolean = ::defaultCompareFn
+    private val compareFn: (String, String) -> Boolean = ::defaultCompareFn,
 ) {
     private val map: MutableMap<String, T> = mutableMapOf()
 

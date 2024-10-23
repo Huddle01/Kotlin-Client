@@ -30,7 +30,7 @@ open class EventEmitter : EventEmitterInterface {
 
     @Throws(Exception::class)
     override fun on(
-        eventName: String, listener: (args: Array<out Any>) -> Unit
+        eventName: String, listener: (args: Array<out Any>) -> Unit,
     ): EventEmitterInterface {
         return addListener(eventName, listener)
     }
@@ -38,14 +38,14 @@ open class EventEmitter : EventEmitterInterface {
 
     @Throws(Exception::class)
     override fun once(
-        eventName: String, listener: (args: Array<out Any>) -> Unit
+        eventName: String, listener: (args: Array<out Any>) -> Unit,
     ): EventEmitterInterface {
         return addListener(eventName, listener, true)
     }
 
 
     override fun addListener(
-        eventName: String, listener: (args: Array<out Any>) -> Unit, isOnce: Boolean
+        eventName: String, listener: (args: Array<out Any>) -> Unit, isOnce: Boolean,
     ): EventEmitterInterface {
         if (defaultMaxListeners != 0 && listenerCount(eventName) >= defaultMaxListeners) {
             //maxListeners exception
@@ -60,7 +60,7 @@ open class EventEmitter : EventEmitterInterface {
 
 
     override fun removeListener(
-        eventName: String, listener: (args: Array<out Any>) -> Unit
+        eventName: String, listener: (args: Array<out Any>) -> Unit,
     ): EventEmitterInterface {
         if (events.containsKey(eventName)) {
             val removeListeners: LinkedList<Listener> = LinkedList()
