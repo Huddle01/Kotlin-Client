@@ -54,10 +54,9 @@ import io.github.crow_misia.webrtc.option.MediaConstraintsOption
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.webrtc.AudioTrack
 import org.webrtc.CameraVideoCapturer.CameraSwitchHandler
@@ -79,7 +78,6 @@ class LocalPeer(
     context: Context,
 ) : EventEmitter() {
 
-    private val scope = CoroutineScope(Job() + Dispatchers.Main)
 
     companion object {
         /** LocalPeer Instance, Singleton class, only one instance of this class can be created
@@ -342,9 +340,7 @@ class LocalPeer(
         return try {
             socket.publish(
                 Request.RequestCase.SEND_DATA, mapOf(
-                    "to" to parsedTo,
-                    "payload" to data.payload,
-                    "label" to data.label
+                    "to" to parsedTo, "payload" to data.payload, "label" to data.label
                 )
             )
             Pair(true, null)
@@ -586,17 +582,16 @@ class LocalPeer(
     }
 
     fun changeCam() {
-        localVideoManager?.switchCamera(
-            object : CameraSwitchHandler {
-                override fun onCameraSwitchDone(b: Boolean) {
-                    store.setCamInProgress(false)
-                }
+        localVideoManager?.switchCamera(object : CameraSwitchHandler {
+            override fun onCameraSwitchDone(b: Boolean) {
+                store.setCamInProgress(false)
+            }
 
-                override fun onCameraSwitchError(s: String) {
-                    Timber.w("❌ Error Enabling Video $s")
-                    store.setCamInProgress(false)
-                }
-            })
+            override fun onCameraSwitchError(s: String) {
+                Timber.w("❌ Error Enabling Video $s")
+                store.setCamInProgress(false)
+            }
+        })
     }
 
 
@@ -612,7 +607,7 @@ class LocalPeer(
         }
         if (_recvTransport == null) {
             Timber.i("🔔 Recv Transport Not Initialized, Creating RecvTransport")
-            scope.launch {
+            runBlocking {
                 createTransportOnServer(transportType = TransportType.RECV)
             }
         }
@@ -808,8 +803,6 @@ class LocalPeer(
         // dispose video manager
         localVideoManager?.dispose()
 
-        scope.cancel()
-
         permissions.reset()
 
         // store setRoomState
@@ -835,7 +828,7 @@ class LocalPeer(
             try {
                 val helloResponse: Hello = responseData.hello
 
-                scope.launch {
+                CoroutineScope(Dispatchers.Main).launch {
                     // store me
                     store.setMe(helloResponse.peerId, helloResponse.role)
                     // store roomId
@@ -904,7 +897,7 @@ class LocalPeer(
                     throw Exception("❌ Cannot Load Device")
                 }
                 // store setRoomState
-                scope.launch {
+                CoroutineScope(Dispatchers.Main).launch {
                     store.setRoomState(RoomStates.CONNECTED)
                 }
                 emit(
@@ -912,7 +905,7 @@ class LocalPeer(
                         "device" to mediasoupDevice
                     )
                 )
-                scope.launch {
+                runBlocking {
                     setRemotePeers(roomInfo)
                 }
                 setLobbyPeers(roomInfo)
@@ -933,10 +926,9 @@ class LocalPeer(
             try {
                 Timber.i("✅ Client recovered after reconnecting => $syncMeetingStateResponse")
 
-                val latestPeersSet = syncMeetingStateResponse.roomInfo.peersList
-                    .orEmpty()
-                    .mapNotNull { it.peerId }
-                    .toSet()
+                val latestPeersSet =
+                    syncMeetingStateResponse.roomInfo.peersList.orEmpty().mapNotNull { it.peerId }
+                        .toSet()
 
                 remotePeers.entries.toList().forEach { (peerId, peer) ->
                     if (peerId in latestPeersSet) {
@@ -947,13 +939,11 @@ class LocalPeer(
                         remotePeers.remove(peerId)
                         room.emit("peer-left", peerId)
                     } else {
-                        val latestPeerInfo = syncMeetingStateResponse.roomInfo.peersList
-                            .find { it.peerId == peerId }
+                        val latestPeerInfo =
+                            syncMeetingStateResponse.roomInfo.peersList.find { it.peerId == peerId }
 
-                        val newProducerSet = latestPeerInfo?.producersList
-                            .orEmpty()
-                            .mapNotNull { it.label }
-                            .toSet()
+                        val newProducerSet =
+                            latestPeerInfo?.producersList.orEmpty().mapNotNull { it.label }.toSet()
 
                         peer.labels.forEach { label ->
                             if (label in newProducerSet) {
@@ -979,32 +969,30 @@ class LocalPeer(
                 }
 
                 // Handle new peers
-                syncMeetingStateResponse.roomInfo.peersList
-                    .filter { it.peerId != null && !remotePeers.containsKey(it.peerId) && it.peerId != this.peerId }
-                    .forEach { latestPeer ->
-                        val peerId = latestPeer.peerId
+                syncMeetingStateResponse.roomInfo.peersList.filter {
+                    it.peerId != null && !remotePeers.containsKey(
+                        it.peerId
+                    ) && it.peerId != this.peerId
+                }.forEach { latestPeer ->
+                    val peerId = latestPeer.peerId
 
-                        val remotePeer = RemotePeer(
-                            peerId = peerId,
-                            role = latestPeer.role,
-                            metadata = latestPeer.metadata
+                    val remotePeer = RemotePeer(
+                        peerId = peerId, role = latestPeer.role, metadata = latestPeer.metadata
+                    )
+
+                    remotePeers[peerId] = remotePeer
+
+                    latestPeer.producersList.forEach { producer ->
+                        val producerId = producer.id
+                        val label = producer.label
+
+                        remotePeer.addLabelData(
+                            label = label, producerId = producerId, this@LocalPeer.appContext
                         )
-
-                        remotePeers[peerId] = remotePeer
-
-                        latestPeer.producersList.forEach { producer ->
-                            val producerId = producer.id
-                            val label = producer.label
-
-                            remotePeer.addLabelData(
-                                label = label,
-                                producerId = producerId,
-                                this@LocalPeer.appContext
-                            )
-                        }
-
-                        room.emit("new-peer-joined", mapOf("peer" to remotePeer))
                     }
+
+                    room.emit("new-peer-joined", mapOf("peer" to remotePeer))
+                }
             } catch (error: Throwable) {
                 Timber.e("❌ Error Syncing Meeting State, Can't Recover | error: $error")
             }
@@ -1092,7 +1080,7 @@ class LocalPeer(
                         put("peerId", peerId)
                         put("role", role)
                     }
-                    scope.launch {
+                    CoroutineScope(Dispatchers.Main).launch {
                         store.addPeer(peerId, peersData)
                     }
                     val remotePeer = room.getRemotePeerById(peerId)
@@ -1143,7 +1131,7 @@ class LocalPeer(
                             closeConsumer(consumeResponse.label, consumeResponse.producerPeerId)
                             Timber.w("onTransportClose for consume")
                             // store for removeConsumer
-                            scope.launch {
+                            CoroutineScope(Dispatchers.Main).launch {
                                 store.removeConsumer(consumeResponse.producerPeerId)
                             }
                         }
@@ -1156,7 +1144,7 @@ class LocalPeer(
                 )
                 // store for addConsumer
                 if (consumer != null) {
-                    scope.launch {
+                    CoroutineScope(Dispatchers.Main).launch {
                         store.addConsumer(consumeResponse.producerPeerId, consumer)
                     }
                 }
@@ -1266,7 +1254,7 @@ class LocalPeer(
                     put("peerId", peerId)
                     put("role", role)
                 }
-                scope.launch {
+                CoroutineScope(Dispatchers.Main).launch {
                     store.addPeer(newPeerId, peersData)
                 }
                 val remotePeer = RemotePeer(
@@ -1463,7 +1451,7 @@ class LocalPeer(
                 val peerId =
                     peerLeftResponse.peerId ?: throw IllegalArgumentException("Peer ID not found")
 
-                scope.launch {
+                CoroutineScope(Dispatchers.Main).launch {
                     // store for removePeer
                     store.removePeer(peerId)
                 }
@@ -1648,7 +1636,7 @@ class LocalPeer(
             }, "new" to {
                 Timber.d("🔔 $transportType Transport New")
             })
-            scope.launch {
+            runBlocking {
                 handler[state]?.invoke()
             }
         } catch (err: Exception) {
@@ -1679,12 +1667,10 @@ class LocalPeer(
             val peerId = peer.peerId
             if (peerId != this.peerId) {
                 val remotePeer = RemotePeer(
-                    peerId = peerId,
-                    metadata = peer.metadata.orEmpty(),
-                    role = peer.role
+                    peerId = peerId, metadata = peer.metadata.orEmpty(), role = peer.role
                 )
                 remotePeers[peerId] = remotePeer
-                scope.launch {
+                CoroutineScope(Dispatchers.Main).launch {
                     // store for removePeer
                     peer.producersList.orEmpty().forEach { producer ->
                         // store for addPeer
@@ -1693,9 +1679,7 @@ class LocalPeer(
                             put("role", peer.role)
                         })
                         remotePeer.addLabelData(
-                            producer.label,
-                            producer.id,
-                            this@LocalPeer.appContext
+                            producer.label, producer.id, this@LocalPeer.appContext
                         )
                     }
                 }
@@ -1724,7 +1708,7 @@ class LocalPeer(
             if (consumer != null) {
                 closeConsumer(label, peerId)
                 consumers.delete(label, peerId)
-                scope.launch {
+                CoroutineScope(Dispatchers.Main).launch {
                     // store for removePeer
                     store.removePeer(peerId)
                 }
