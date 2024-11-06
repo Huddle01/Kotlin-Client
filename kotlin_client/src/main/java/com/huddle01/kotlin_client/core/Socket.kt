@@ -9,12 +9,12 @@ import RequestOuterClass.Consume
 import RequestOuterClass.CreateTransport
 import RequestOuterClass.DenyLobbyPeer
 import RequestOuterClass.KickPeer
+import RequestOuterClass.PauseProducer
 import RequestOuterClass.Produce
 import RequestOuterClass.Request
 import RequestOuterClass.RestartTransportIce
-import RequestOuterClass.ResumeProducer
-import RequestOuterClass.PauseProducer
 import RequestOuterClass.ResumeConsumer
+import RequestOuterClass.ResumeProducer
 import RequestOuterClass.SendData
 import RequestOuterClass.SyncMeetingState
 import RequestOuterClass.UpdatePeerMetadata
@@ -424,12 +424,14 @@ class Socket : EventEmitter() {
                     .build()
 
             Request.RequestCase.RESUME_PRODUCER -> message.resumeProducer =
-                ResumeProducer.newBuilder().setProducerId(incomingData?.get("producerId") as? String)
+                ResumeProducer.newBuilder()
+                    .setProducerId(incomingData?.get("producerId") as? String)
                     .build()
 
             Request.RequestCase.PAUSE_PRODUCER -> message.pauseProducer =
                 PauseProducer.newBuilder().setProducerId(incomingData?.get("producerId") as? String)
                     .build()
+
             Request.RequestCase.SEND_DATA -> message.sendData =
                 SendData.newBuilder().apply {
                     val toList = incomingData?.get("to") as? ArrayList<*>

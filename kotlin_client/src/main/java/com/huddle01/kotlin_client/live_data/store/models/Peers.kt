@@ -4,7 +4,6 @@ import io.github.crow_misia.mediasoup.Consumer
 import org.json.JSONObject
 import timber.log.Timber
 import java.util.Collections
-import java.util.LinkedHashMap
 
 class Peers {
     private val peersInfo = Collections.synchronizedMap(LinkedHashMap<String, Peer>())
