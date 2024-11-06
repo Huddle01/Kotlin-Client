@@ -4,6 +4,8 @@ import RequestOuterClass.Request
 import ResponseOuterClass
 import ResponseOuterClass.CloseConsumerSuccess
 import ResponseOuterClass.CloseProducerSuccess
+import ResponseOuterClass.PauseProducerSuccess
+import ResponseOuterClass.ResumeProducerSuccess
 import ResponseOuterClass.ConnectTransportResponse
 import ResponseOuterClass.ConsumeResponse
 import ResponseOuterClass.CreateTransportOnClient
@@ -131,6 +133,9 @@ class LocalPeer(
         peerConnectionFactory.createDevice()
     }
 
+    private var micProducer: Producer? = null
+    private var camProducer: Producer? = null
+
     /**
      * SendTransport handles the sending of media from the client to the server
      */
@@ -242,34 +247,10 @@ class LocalPeer(
     var iceRestartDebounce: Boolean = false
 
     /**
-     * Map of Producers, which handles the producers (sending out Media Streams).
-     */
-    private val producers: MutableMap<String, Producer> = mutableMapOf()
-
-    /**
      * Map of Consumers, which handles the consumers (receiving Media Streams).
      * If `EnhancedMap` is a custom map type, you may need to define this class or use a similar type if applicable.
      */
     private val consumers: EnhancedMap<Consumer> = EnhancedMap()
-
-    /**
-     * Map of Identifiers to Producer Ids, which handles the mapping of identifiers to producer ids.
-     * `identifiers` are the unique identifiers for the stream, which is used to identify the stream.
-     */
-    private val labelToProducerId: MutableMap<String, String> = mutableMapOf()
-
-    /**
-     * Returns the labels of the Media Streams that the Local Peer is producing to the room.
-     */
-    val labels: List<String>
-        get() {
-            val sendTransport = _sendTransport
-            return if (sendTransport != null) {
-                labelToProducerId.keys.toList()
-            } else {
-                emptyList()
-            }
-        }
 
     /**
      * Returns the metadata associated with the LocalPeer.
@@ -304,20 +285,6 @@ class LocalPeer(
                 "metadata" to Gson().fromJson(metadata, Map::class.java)
             )
         )
-    }
-
-    /**
-     * Returns the producer with the given label.
-     */
-    fun getProducerWithLabel(label: String): Producer? {
-        return try {
-            // Retrieve the producer ID using the provided label
-            val producerId = labelToProducerId[label]
-            producerId?.let { producers[it] }
-        } catch (error: Exception) {
-            Timber.e("❌ Cannot find producer with identifier: $label | error: $error")
-            null
-        }
     }
 
     /**
@@ -360,37 +327,37 @@ class LocalPeer(
         }
     }
 
-    fun stopProducing(label: String) {
+    private fun stopProducing(label: String, producer: Producer) {
         waitingToProduce.remove(label)
-
         var closedStream = false
-        val producer = getProducerWithLabel(label)
+        val producerId = producer.id
 
-        if (producer != null) {
-            Timber.i("🔔 Closing Producer", mapOf("label" to label, "producerId" to producer.id))
-            producers.remove(producer.id)
-            producer.close()
-            closedStream = true
-
-            socket.publish(
-                Request.RequestCase.CLOSE_PRODUCER, mapOf(
-                    "producerId" to producer.id
-                )
-            )
+        fun closeAndDisposeProducer(producer: Producer?) {
+            producer?.let {
+                it.close()
+                it.dispose()
+                closedStream = true
+            }
         }
 
-        val audioTrack = activeAudioTrack[label]
-        val videoTrack = activeVideoTrack[label]
+        when (label) {
+            "audio" -> {
+                Timber.i("🔔 Closing Producer", mapOf("label" to label, "producerId" to producerId))
+                closeAndDisposeProducer(micProducer)
+                micProducer = null
+            }
 
-        if (audioTrack != null) {
-            activeAudioTrack.remove(label)
-            closedStream = true
+            "video" -> {
+                Timber.i("🔔 Closing Producer", mapOf("label" to label, "producerId" to producerId))
+                closeAndDisposeProducer(camProducer)
+                camProducer = null
+                camCapturer?.stopCapture()
+            }
         }
-        if (videoTrack != null) {
-            activeVideoTrack.remove(label)
-            closedStream = true
-            camCapturer?.stopCapture()
-        }
+
+        socket.publish(Request.RequestCase.CLOSE_PRODUCER, mapOf("producerId" to producerId))
+        closedStream = closedStream or (activeAudioTrack.remove(label) != null)
+        closedStream = closedStream or (activeVideoTrack.remove(label) != null)
 
         if (closedStream) {
             emit(
@@ -410,7 +377,7 @@ class LocalPeer(
     fun disableVideo(
         videoSurfaceViewRenderer: SurfaceViewRenderer,
     ) {
-        stopProducing(label = "video")
+        camProducer?.let { stopProducing(label = "video", producer = it) }
         videoSurfaceViewRenderer.run {
             release()
             setMirror(false)
@@ -418,12 +385,80 @@ class LocalPeer(
         }
     }
 
+    fun muteMic() {
+        try {
+            Timber.d("🔔 Pausing Audio")
+
+            val audioTrack = this.activeAudioTrack["audio"]
+
+            if (audioTrack == null) {
+                Timber.e("❌ No Audio Track Found, use enableAudio to enable audio first before pausing")
+                return
+            }
+
+            micProducer?.let {
+                it.pause()
+                socket.publish(
+                    Request.RequestCase.PAUSE_PRODUCER, mapOf(
+                        "producerId" to it.id
+                    )
+                )
+            }
+            emit(
+                "stream-paused", mapOf(
+                    "label" to "audio", "mediaKind" to "mic"
+                )
+            )
+        } catch (
+            error: Exception, ) {
+            Timber.e("❌ Error Muting Mic | error: $error")
+        }
+
+    }
+
+    fun unMuteMic() {
+        try {
+            Timber.d("🔔 Resuming Audio")
+
+            val audioTrack = this.activeAudioTrack["audio"]
+
+            if (audioTrack == null) {
+                Timber.e("❌ No Audio Track Found, use enableAudio to enable audio first before pausing")
+                return
+            }
+
+            micProducer?.let {
+                it.resume()
+                socket.publish(
+                    Request.RequestCase.RESUME_PRODUCER, mapOf(
+                        "producerId" to it.id
+                    )
+                )
+                emit(
+                    "stream-playable", mapOf(
+                        "label" to "audio", "producer" to it
+                    )
+                )
+            } ?: run {
+                emit(
+                    "stream-fetched", mapOf(
+                        "label" to "audio", "mediaKind" to "mic", "track" to audioTrack
+                    )
+                )
+            }
+        } catch (
+            error: Exception, ) {
+            Timber.e("❌ Error Muting Mic | error: $error")
+        }
+
+    }
+
     /**
      * Stops the underlying producing of a microphone stream, stops the local track, and closes the producer.
      * NOTE: This will notify all the RemotePeers that this producer has stopped producing and they should stop consuming it.
      */
     fun disableAudio() {
-        stopProducing(label = "audio")
+        micProducer?.let { stopProducing(label = "audio", producer = it) }
     }
 
 
@@ -431,53 +466,47 @@ class LocalPeer(
         label: String, audioTrack: AudioTrack?, videoTrack: VideoTrack?, appData: String?,
     ) {
         Timber.i("produce called")
+
+        if (!permissions.checkPermission("canProduce")) {
+            Timber.e("Access Denied: Cannot Produce")
+            return
+        }
+
+        if (!joined) {
+            val completer = CompletableDeferred<Unit>()
+            waitingToProduce[label] = {
+                audioTrack?.let { produce(label, it, null, appData) }
+                videoTrack?.let { produce(label, null, it, appData) }
+                completer.complete(Unit)
+            }
+            return completer.await()
+        }
+
+        val sendTransport = _sendTransport
+            ?: throw IllegalStateException("❌ Send Transport Not Initialized, Internal Error")
+
+        Timber.i("🔔 Produce Called for label: $label")
+
+        val track = when (label) {
+            "audio" -> audioTrack
+            "video" -> videoTrack
+            else -> throw IllegalArgumentException("❌ Invalid Label")
+        } ?: return
+
+        val producerType = if (label == "audio") "micProducer" else "camProducer"
+
         try {
-            if (!permissions.checkPermission("canProduce")) {
-                Timber.e("Access Denied: Cannot Produce")
-                return
-            }
-
-            if (!joined) {
-                val completer = CompletableDeferred<Unit>()
-                val fn: suspend () -> Unit = {
-                    audioTrack?.let {
-                        produce(label, it, null, appData)
+            sendTransport.produce(
+                listener = object : Producer.Listener {
+                    override fun onTransportClose(producer: Producer) {
+                        Timber.e("onTransportClose(), $producerType for label: $label")
+                        if (label == "audio") this@LocalPeer.micProducer = null
+                        if (label == "video") this@LocalPeer.camProducer = null
                     }
-                    videoTrack?.let {
-                        produce(label, null, it, appData)
-                    }
-                    completer.complete(Unit)
-                }
-                waitingToProduce[label] = fn
-                return completer.await()
-            }
-
-            val sendTransport = _sendTransport
-                ?: throw IllegalStateException("❌ Send Transport Not Initialized, Internal Error")
-
-            Timber.i("🔔 Produce Called for label: $label")
-
-            val track = when (label) {
-                "audio" -> audioTrack
-                "video" -> videoTrack
-                else -> throw IllegalArgumentException("❌ Invalid Label")
-            }
-            track?.let { currentTrack ->
-                sendTransport.produce(
-                    listener = object : Producer.Listener {
-                        override fun onTransportClose(producer: Producer) {
-                            Timber.e("onTransportClose(), producer for label: $label")
-                            stopProducing(label)
-                        }
-                    },
-                    track = currentTrack,
-                    encodings = emptyList(),
-                    codecOptions = null,
-                    appData = appData
-                ).also { producer ->
-                    producers[producer.id] = producer
-                    labelToProducerId[label] = producer.id
-                }
+                }, track = track, encodings = emptyList(), codecOptions = null, appData = appData
+            ).also { producer ->
+                if (label == "audio") this.micProducer = producer
+                if (label == "video") this.camProducer = producer
             }
         } catch (error: Exception) {
             Timber.e("❌ Error Create Producer Failed | error: $error")
@@ -486,6 +515,9 @@ class LocalPeer(
     }
 
     suspend fun enableAudio(customAudioTrack: AudioTrack? = null): AudioTrack? {
+        if (micProducer != null) {
+            return null
+        }
         try {
             if (!permissions.checkPermission("admin")) {
                 throw Exception("❌ Cannot Enable Audio, Permission Denied")
@@ -495,10 +527,9 @@ class LocalPeer(
                 Timber.w("🔔 Mic Stream Already Enabled")
                 return null
             }
-            // Transport is being created here
-            if (_sendTransport == null) {
-                createTransportOnServer(TransportType.SEND)
-            }
+
+            if (_sendTransport == null) createTransportOnServer(TransportType.SEND)
+
             localAudioManager?.initTrack(peerConnectionFactory, mediaConstraintsOption)
             val localAudioTrack = localAudioManager?.track ?: run {
                 Timber.w("audio track null")
@@ -533,6 +564,9 @@ class LocalPeer(
         videoSurfaceViewRenderer: SurfaceViewRenderer,
         customVideoTrack: VideoTrack? = null,
     ): VideoTrack? {
+        if (camProducer != null) {
+            return null
+        }
         try {
             if (!permissions.checkPermission("admin")) {
                 throw Exception("❌ Cannot Enable Video, Permission Denied")
@@ -542,10 +576,9 @@ class LocalPeer(
                 Timber.w("🔔 Cam Stream Already Enabled")
                 return null
             }
-            // Transport is being created here
-            if (_sendTransport == null) {
-                createTransportOnServer(TransportType.SEND)
-            }
+
+            if (_sendTransport == null) createTransportOnServer(TransportType.SEND)
+
             localVideoManager?.initTrack(peerConnectionFactory, mediaConstraintsOption, appContext)
             camCapturer?.startCapture(640, 480, 30)
             val localVideoTrack = localVideoManager?.track ?: run {
@@ -602,15 +635,25 @@ class LocalPeer(
      */
     fun consume(appData: String?, label: String, peerId: String) {
         Timber.i("consume called")
+
         if (!permissions.checkPermission("canConsume")) {
+            Timber.e("❌ Permission Denied: cannot consume")
             return
         }
+
         if (_recvTransport == null) {
             Timber.i("🔔 Recv Transport Not Initialized, Creating RecvTransport")
-            runBlocking {
-                createTransportOnServer(transportType = TransportType.RECV)
+            try {
+                runBlocking {
+                    createTransportOnServer(transportType = TransportType.RECV)
+                }
+                Timber.i("🔔 Recv Transport Successfully Initialized")
+            } catch (error: Exception) {
+                Timber.e("❌ Failed to Create RecvTransport | error: $error")
+
             }
         }
+
         try {
             val remotePeer =
                 remotePeers[peerId] ?: throw Exception("Remote Peer Not Found with PeerId $peerId")
@@ -625,7 +668,6 @@ class LocalPeer(
                     "appData" to appData
                 )
             )
-
         } catch (error: Exception) {
             Timber.e("❌ Error Consuming Stream | error: $error")
             throw error
@@ -778,12 +820,14 @@ class LocalPeer(
      */
     fun close() {
 
+        Timber.i("LocalPeer Close")
+
         if (activeAudioTrack.isNotEmpty() || activeVideoTrack.isNotEmpty()) {
             activeAudioTrack.keys.forEach { label ->
-                stopProducing(label)
+                micProducer?.let { stopProducing(label, it) }
             }
             activeVideoTrack.keys.forEach { label ->
-                stopProducing(label)
+                camProducer?.let { stopProducing(label, it) }
             }
         }
 
@@ -985,7 +1029,6 @@ class LocalPeer(
                     latestPeer.producersList.forEach { producer ->
                         val producerId = producer.id
                         val label = producer.label
-
                         remotePeer.addLabelData(
                             label = label, producerId = producerId, this@LocalPeer.appContext
                         )
@@ -1090,7 +1133,9 @@ class LocalPeer(
                         )
                     } else {
                         remotePeer.addLabelData(
-                            label = label, producerId = producerId, this@LocalPeer.appContext
+                            label = label,
+                            producerId = producerId,
+                            this@LocalPeer.appContext
                         )
                     }
                 }
@@ -1133,6 +1178,7 @@ class LocalPeer(
                             // store for removeConsumer
                             CoroutineScope(Dispatchers.Main).launch {
                                 store.removeConsumer(consumeResponse.producerPeerId)
+                                store.me.value?.myConsumedTracks?.remove(consumeResponse.producerPeerId)
                             }
                         }
                     },
@@ -1145,6 +1191,11 @@ class LocalPeer(
                 // store for addConsumer
                 if (consumer != null) {
                     CoroutineScope(Dispatchers.Main).launch {
+                        if (consumer.kind == "video") {
+                            store.setMyConsumedTracks(
+                                consumeResponse.producerPeerId, consumer.track
+                            )
+                        }
                         store.addConsumer(consumeResponse.producerPeerId, consumer)
                     }
                 }
@@ -1184,6 +1235,63 @@ class LocalPeer(
                 Timber.e("❌ Error Consume Response: $error")
             }
         }
+
+        eventsHandler[HandlerEvents.RESUMEPRODUCERSUCCESS] = handler@{ responseData: Response ->
+            if (!responseData.hasResumeProducerSuccess()) return@handler
+            val resumeProducerSuccessResponse: ResumeProducerSuccess =
+                responseData.resumeProducerSuccess
+            try {
+                Timber.i("✅ Producer Resumed")
+
+                if (resumeProducerSuccessResponse.peerId == this.peerId) return@handler
+
+                val peerId = resumeProducerSuccessResponse.peerId
+                val label = resumeProducerSuccessResponse.label
+                val remotePeer = room.getRemotePeerById(peerId)
+
+                val consumer = getConsumer(label = label, peerId = peerId)
+                if (consumer != null && consumer.producerId == resumeProducerSuccessResponse.producerId) {
+                    consumer.resume()
+                    remotePeer.emit(
+                        "stream-playable", mapOf(
+                            "label" to label, "consumer" to consumer
+                        )
+                    )
+                }
+            } catch (error: Exception) {
+                Timber.e("❌ Error Resuming Producer: $error")
+            }
+        }
+
+        eventsHandler[HandlerEvents.PAUSEPRODUCERSUCCESS] = handler@{ responseData: Response ->
+            if (!responseData.hasPauseProducerSuccess()) return@handler
+            val pauseProducerSuccessResponse: PauseProducerSuccess =
+                responseData.pauseProducerSuccess
+            try {
+                Timber.i("✅ Producer Paused")
+
+                if (pauseProducerSuccessResponse.peerId == this.peerId) return@handler
+
+                val peerId = pauseProducerSuccessResponse.peerId
+                val label = pauseProducerSuccessResponse.label
+                val producerId = pauseProducerSuccessResponse.producerId
+
+                val remotePeer = room.getRemotePeerById(peerId)
+
+                val consumer = getConsumer(label = label, peerId = peerId)
+                if (consumer != null && consumer.producerId == pauseProducerSuccessResponse.producerId) {
+                    consumer.pause()
+                    remotePeer.emit(
+                        "stream-paused", mapOf(
+                            "label" to label, "producerId" to producerId, "consumer" to consumer
+                        )
+                    )
+                }
+            } catch (error: Exception) {
+                Timber.e("❌ Error Pausing Producer: $error")
+            }
+        }
+
 
         eventsHandler[HandlerEvents.CLOSEPRODUCERSUCCESS] = handler@{ responseData: Response ->
             if (!responseData.hasCloseProducerSuccess()) return@handler
@@ -1360,7 +1468,8 @@ class LocalPeer(
                     val peerId = producer.peerId ?: continue
 
                     if (peerId == this.peerId) {
-                        stopProducing(label = label)
+                        micProducer?.let { stopProducing(label = label, it) }
+                        camProducer?.let { stopProducing(label = label, it) }
                         continue
                     }
 
@@ -1491,6 +1600,7 @@ class LocalPeer(
     private val sendTransportListener: SendTransport.Listener = object : SendTransport.Listener {
         override fun onConnect(transport: Transport, dtlsParameters: String) {
             Timber.i("sendTransportListener onConnect ")
+
             try {
                 socket.publish(
                     Request.RequestCase.CONNECT_TRANSPORT, mapOf(
@@ -1510,6 +1620,7 @@ class LocalPeer(
         override fun onProduce(
             transport: Transport, kind: String, rtpParameters: String, appData: String?,
         ): String {
+
             try {
                 socket.publish(
                     Request.RequestCase.PRODUCE, mapOf(
@@ -1584,7 +1695,9 @@ class LocalPeer(
                     sctpParameters = sctpParameters,
                     appData = appData,
                     rtcConfig = rtcConfig
-                ).also { _sendTransport = it }
+                ).also {
+                    _sendTransport = it
+                }
             }
 
             "recv" -> recvTransportListener?.let { it ->
@@ -1612,6 +1725,8 @@ class LocalPeer(
             Timber.d("🔔 $transportType Transport Connection State Changed, state: $state")
             val handler: Map<String, suspend () -> Unit> = mapOf("connected" to {
                 Timber.d("🔔 $transportType Transport Connected")
+                if (transportType == "send") handleWaitingToProduce()
+                if (transportType == "recv") handleWaitingToConsume()
             }, "disconnected" to {
                 if (iceRestartDebounce) {
                     return@to
@@ -1731,7 +1846,7 @@ class LocalPeer(
      * that allows the user to produce the stream
      */
     private suspend fun handleWaitingToProduce() {
-        Timber.i("handleWaitingToProduce")
+        Timber.i("handleWaitingToProduce called")
         try {
             val streamClosedReason = mapOf(
                 "code" to 4444, "tag" to "User's Permissions Denied", "message" to "CLOSED_BY_ADMIN"
@@ -1759,7 +1874,6 @@ class LocalPeer(
                         "audio" -> permissions.checkPermission("audio")
                         else -> false
                     }
-
                     if (canProduce) {
                         closeStream(label)
                     } else {
@@ -1781,8 +1895,13 @@ class LocalPeer(
 
     private suspend fun handleWaitingToConsume() {
         Timber.i("handleWaitingToConsume")
-        waitingToConsume.forEach { consumeTask ->
-            runCatching { consumeTask.invoke() }.onFailure { Timber.e("Unable to Consume after ice restart: $it") }
-        }.also { waitingToConsume.clear() }
+        for (consumeTask in waitingToConsume) {
+            try {
+                consumeTask.invoke()
+            } catch (e: Exception) {
+                Timber.e("Unable to Consume after ice restart")
+            }
+        }
+        waitingToConsume.clear()
     }
 }
