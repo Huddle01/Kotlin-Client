@@ -8,6 +8,7 @@ import com.huddle01.kotlin_client.live_data.store.models.RoomInfo
 import com.huddle01.kotlin_client.models.enum_class.RoomStates
 import io.github.crow_misia.mediasoup.Consumer
 import org.json.JSONObject
+import org.webrtc.MediaStreamTrack
 
 class RoomStore : ViewModel() {
     val roomInfo = SupplierMutableLiveData { RoomInfo() }
@@ -36,6 +37,15 @@ class RoomStore : ViewModel() {
         me.postValue {
             it.peerId = peerId
             it.role = role
+        }
+    }
+
+    fun setMyConsumedTracks(
+        peerId: String,
+        mediaStreamTrack: MediaStreamTrack,
+    ) {
+        me.postValue {
+            it.myConsumedTracks[peerId] = mediaStreamTrack
         }
     }
 
