@@ -4,6 +4,7 @@ import io.github.crow_misia.mediasoup.Consumer
 import org.json.JSONObject
 import timber.log.Timber
 import java.util.Collections
+import java.util.LinkedHashMap
 
 class Peers {
     private val peersInfo = Collections.synchronizedMap(LinkedHashMap<String, Peer>())
@@ -35,6 +36,9 @@ class Peers {
 
     val allPeers: List<Peer>
         get() = peersInfo.values.toList()
+
+    val hostPeer: Peer?
+        get() = peersInfo.values.firstOrNull { it.role == "host" }
 
     fun clear() {
         peersInfo.clear()
