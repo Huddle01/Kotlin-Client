@@ -1,6 +1,10 @@
 package com.huddle01.kotlin_client.common
 
+import AppDataOuterClass
 import RtpCapabilities
+import RtpParameters
+import SctpCapabilities
+import SdpInfo
 import com.huddle01.kotlin_client.utils.JsonUtils
 import org.json.JSONObject
 import org.webrtc.MediaStreamTrack
@@ -136,7 +140,7 @@ object ProtoParsing {
     }
 
     fun getParsedDtlsParameters(
-        protoDtlsParametersList: List<SdpInfo.ProtoDtlsFingerPrints>, role: String
+        protoDtlsParametersList: List<SdpInfo.ProtoDtlsFingerPrints>, role: String,
     ): String {
         val fingerprints = protoDtlsParametersList.joinToString(",") { protoDtlsParams ->
             """{"algorithm":"${protoDtlsParams.algorithm}","value":"${protoDtlsParams.value}"}"""
@@ -239,7 +243,7 @@ object ProtoParsing {
 
     fun parseRtpCapabilities(
         codecs: List<RtpCapabilities.ProtoRtpCodecCapability>,
-        headerExtensions: List<RtpCapabilities.ProtoRtpHeaderExtension>
+        headerExtensions: List<RtpCapabilities.ProtoRtpHeaderExtension>,
     ): String {
         fun parseCodec(codec: RtpCapabilities.ProtoRtpCodecCapability): String {
 
@@ -288,15 +292,21 @@ object ProtoParsing {
         }""".replace("\\s".toRegex(), "")
         }
 
-        val sortedCodecs = codecs.sortedWith(compareBy<RtpCapabilities.ProtoRtpCodecCapability> { codec ->
-            when {
-                codec.mimeType.contains("H264", ignoreCase = true) -> 0
-                codec.mimeType.contains("rtx") && codec.parametersMap["apt"]?.toString()?.toIntOrNull()?.let { apt ->
-                    codecs.find { it.preferredPayloadType == apt }?.mimeType?.contains("H264", ignoreCase = true)
-                } == true -> 1
-                else -> 2
-            }
-        }.thenBy { it.preferredPayloadType })
+        val sortedCodecs =
+            codecs.sortedWith(compareBy<RtpCapabilities.ProtoRtpCodecCapability> { codec ->
+                when {
+                    codec.mimeType.contains("H264", ignoreCase = true) -> 0
+                    codec.mimeType.contains("rtx") && codec.parametersMap["apt"]?.toString()
+                        ?.toIntOrNull()?.let { apt ->
+                        codecs.find { it.preferredPayloadType == apt }?.mimeType?.contains(
+                            "H264",
+                            ignoreCase = true
+                        )
+                    } == true -> 1
+
+                    else -> 2
+                }
+            }.thenBy { it.preferredPayloadType })
 
         val codecsJson = sortedCodecs.joinToString(
             separator = ",",
@@ -318,7 +328,7 @@ object ProtoParsing {
         headerExtensions: List<RtpParameters.ProtoHeaderExtensionParameters>,
         encodings: List<RtpParameters.ProtoEncodings>,
         rtcp: RtpParameters.RtcpParameters,
-        mid: String
+        mid: String,
     ): String {
         val codecsJson = codecs.joinToString(",", "\"codecs\":[", "]", transform = ::parseCodec)
         val headerExtensionsJson = headerExtensions.joinToString(
@@ -334,14 +344,15 @@ object ProtoParsing {
     }
 
     private fun parseCodec(codec: RtpParameters.ProtoCodecParameters): String {
-        val parametersJson = codec.parametersMap.entries.joinToString(",", "{", "}") { (key, value) ->
-            val formattedValue = when {
-                key == "profile-level-id" -> "\"$value\""
-                value.matches(Regex("-?\\d+")) -> value
-                else -> "\"$value\""
+        val parametersJson =
+            codec.parametersMap.entries.joinToString(",", "{", "}") { (key, value) ->
+                val formattedValue = when {
+                    key == "profile-level-id" -> "\"$value\""
+                    value.matches(Regex("-?\\d+")) -> value
+                    else -> "\"$value\""
+                }
+                "\"$key\":$formattedValue"
             }
-            "\"$key\":$formattedValue"
-        }
 
         val rtcpFeedbackJson = codec.rtcpFeedbackList.takeIf(List<*>::isNotEmpty)
             ?.joinToString(",", "[", "]") { feedback ->
@@ -367,6 +378,7 @@ object ProtoParsing {
             append("}")
         }
     }
+
     private fun parseHeaderExtension(header: RtpParameters.ProtoHeaderExtensionParameters): String {
         return """{"uri":"${header.uri}","id":${header.id},"encrypt":${header.encrypt},"parameters":${header.parametersMap}}"""
     }
@@ -385,7 +397,7 @@ object ProtoParsing {
                 append(",\"rtx\":{\"ssrc\":${rtx.ssrc}}")
             }
 
-            encoding.maxBitrate?.takeIf { it > 0 }?.let { maxBitrate ->
+            encoding.maxBitrate.takeIf { it > 0 }?.let { maxBitrate ->
                 append(",\"maxBitrate\":$maxBitrate")
             }
 

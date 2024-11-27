@@ -29,7 +29,6 @@ import android.os.Handler
 import android.os.Looper
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import com.huddle01.kotlin_client.models.SendData
 import com.huddle01.kotlin_client.common.EnhancedMap
 import com.huddle01.kotlin_client.common.ProtoParsing
 import com.huddle01.kotlin_client.constants.maxDataMessageSize
@@ -37,6 +36,7 @@ import com.huddle01.kotlin_client.live_data.store.HuddleStore
 import com.huddle01.kotlin_client.models.ProduceSources
 import com.huddle01.kotlin_client.models.RoomConfig
 import com.huddle01.kotlin_client.models.RoomStats
+import com.huddle01.kotlin_client.models.SendData
 import com.huddle01.kotlin_client.models.enum_class.RoomStates
 import com.huddle01.kotlin_client.types.HandlerEvents
 import com.huddle01.kotlin_client.types.TransportType
@@ -364,7 +364,6 @@ class LocalPeer(
             )
         }
     }
-
 
     /**
      * Stops the underlying producing of a camera stream, stops the local track, and closes the producer.
