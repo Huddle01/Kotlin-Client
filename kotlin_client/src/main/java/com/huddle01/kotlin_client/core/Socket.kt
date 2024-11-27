@@ -22,9 +22,11 @@ import RequestOuterClass.UpdatePeerRole
 import RequestOuterClass.UpdateRoomMetadata
 import ResponseOuterClass.Response
 import com.huddle01.kotlin_client.common.ProtoParsing
+import com.huddle01.kotlin_client.live_data.store.HuddleStore
 import com.huddle01.kotlin_client.models.GeoData
 import com.huddle01.kotlin_client.models.GeoLocation
 import com.huddle01.kotlin_client.models.enum_class.ConnectionState
+import com.huddle01.kotlin_client.models.enum_class.RoomStates
 import com.huddle01.kotlin_client.types.ESocketCloseCode
 import com.huddle01.kotlin_client.utils.EventEmitter
 import com.huddle01.kotlin_client.utils.JsonUtils
@@ -285,6 +287,7 @@ class Socket : EventEmitter() {
             emit("closed", code)
 
             Timber.i("🔌 WebSocket Connection closed")
+            HuddleStore.setRoomState(RoomStates.CLOSED)
 
             return
         }

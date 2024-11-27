@@ -29,14 +29,14 @@ import android.os.Handler
 import android.os.Looper
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.huddle01.kotlin_client.models.SendData
 import com.huddle01.kotlin_client.common.EnhancedMap
 import com.huddle01.kotlin_client.common.ProtoParsing
 import com.huddle01.kotlin_client.constants.maxDataMessageSize
-import com.huddle01.kotlin_client.live_data.store.RoomStore
+import com.huddle01.kotlin_client.live_data.store.HuddleStore
 import com.huddle01.kotlin_client.models.ProduceSources
 import com.huddle01.kotlin_client.models.RoomConfig
 import com.huddle01.kotlin_client.models.RoomStats
-import com.huddle01.kotlin_client.models.SendData
 import com.huddle01.kotlin_client.models.enum_class.RoomStates
 import com.huddle01.kotlin_client.types.HandlerEvents
 import com.huddle01.kotlin_client.types.TransportType
@@ -79,7 +79,6 @@ import java.util.Locale
 class LocalPeer(
     context: Context,
 ) : EventEmitter() {
-
 
     companion object {
         /** LocalPeer Instance, Singleton class, only one instance of this class can be created
@@ -174,10 +173,6 @@ class LocalPeer(
     private val activeAudioTrack: MutableMap<String, AudioTrack> = mutableMapOf()
     private val activeVideoTrack: MutableMap<String, VideoTrack> = mutableMapOf()
 
-    // room store
-    val store: RoomStore by lazy {
-        RoomStore()
-    }
 
     /** Returns the room instance
      */
@@ -369,6 +364,7 @@ class LocalPeer(
             )
         }
     }
+
 
     /**
      * Stops the underlying producing of a camera stream, stops the local track, and closes the producer.
@@ -617,12 +613,12 @@ class LocalPeer(
     fun changeCam() {
         localVideoManager?.switchCamera(object : CameraSwitchHandler {
             override fun onCameraSwitchDone(b: Boolean) {
-                store.setCamInProgress(false)
+                HuddleStore.setCamInProgress(false)
             }
 
             override fun onCameraSwitchError(s: String) {
                 Timber.w("❌ Error Enabling Video $s")
-                store.setCamInProgress(false)
+                HuddleStore.setCamInProgress(false)
             }
         })
     }
@@ -842,15 +838,7 @@ class LocalPeer(
         _recvTransport?.close()
         _recvTransport = null
 
-        // dispose audio manager
-        localAudioManager?.dispose()
-        // dispose video manager
-        localVideoManager?.dispose()
-
         permissions.reset()
-
-        // store setRoomState
-        store.setRoomState(RoomStates.CLOSED)
 
         emit(
             "permissions-updated", mapOf(
@@ -858,7 +846,6 @@ class LocalPeer(
             )
         )
     }
-
 
     private fun handlerEvents() {
         eventsHandler[HandlerEvents.ERROR] = handler@{ responseData: Response ->
@@ -874,9 +861,9 @@ class LocalPeer(
 
                 CoroutineScope(Dispatchers.Main).launch {
                     // store me
-                    store.setMe(helloResponse.peerId, helloResponse.role)
+                    HuddleStore.setMe(helloResponse.peerId, helloResponse.role)
                     // store roomId
-                    store.setRoomId(helloResponse.roomId)
+                    HuddleStore.setRoomId(helloResponse.roomId)
                 }
 
                 this.peerId = helloResponse.peerId
@@ -914,6 +901,7 @@ class LocalPeer(
                     responseData.connectRoomResponse
                 val roomInfo = connectRoomResponse.roomInfo
                 val routerRTPCapabilities = connectRoomResponse.routerRTPCapabilities
+
                 this.room.updateConfig(
                     RoomConfig(
                         roomLocked = roomInfo.config.roomLocked,
@@ -940,9 +928,10 @@ class LocalPeer(
                 if (!isDeviceLoaded) {
                     throw Exception("❌ Cannot Load Device")
                 }
+
                 // store setRoomState
                 CoroutineScope(Dispatchers.Main).launch {
-                    store.setRoomState(RoomStates.CONNECTED)
+                    HuddleStore.setRoomState(RoomStates.CONNECTED)
                 }
                 emit(
                     "device-created", mapOf(
@@ -961,6 +950,7 @@ class LocalPeer(
                 return@handler
             }
         }
+
 
         eventsHandler[HandlerEvents.SYNCMEETINGSTATERESPONSE] = handler@{ responseData: Response ->
             if (!responseData.hasSyncMeetingStateResponse()) return@handler
@@ -1124,7 +1114,7 @@ class LocalPeer(
                         put("role", role)
                     }
                     CoroutineScope(Dispatchers.Main).launch {
-                        store.addPeer(peerId, peersData)
+                        HuddleStore.addPeer(peerId, peersData)
                     }
                     val remotePeer = room.getRemotePeerById(peerId)
                     if (_recvTransport == null) {
@@ -1133,9 +1123,7 @@ class LocalPeer(
                         )
                     } else {
                         remotePeer.addLabelData(
-                            label = label,
-                            producerId = producerId,
-                            this@LocalPeer.appContext
+                            label = label, producerId = producerId, this@LocalPeer.appContext
                         )
                     }
                 }
@@ -1177,8 +1165,8 @@ class LocalPeer(
                             Timber.w("onTransportClose for consume")
                             // store for removeConsumer
                             CoroutineScope(Dispatchers.Main).launch {
-                                store.removeConsumer(consumeResponse.producerPeerId)
-                                store.me.value?.myConsumedTracks?.remove(consumeResponse.producerPeerId)
+                                HuddleStore.removeConsumer(consumeResponse.producerPeerId)
+                                HuddleStore.me.value?.myConsumedTracks?.remove(consumeResponse.producerPeerId)
                             }
                         }
                     },
@@ -1192,11 +1180,11 @@ class LocalPeer(
                 if (consumer != null) {
                     CoroutineScope(Dispatchers.Main).launch {
                         if (consumer.kind == "video") {
-                            store.setMyConsumedTracks(
+                            HuddleStore.setMyConsumedTracks(
                                 consumeResponse.producerPeerId, consumer.track
                             )
                         }
-                        store.addConsumer(consumeResponse.producerPeerId, consumer)
+                        HuddleStore.addConsumer(consumeResponse.producerPeerId, consumer)
                     }
                 }
                 socket.publish(
@@ -1363,7 +1351,7 @@ class LocalPeer(
                     put("role", role)
                 }
                 CoroutineScope(Dispatchers.Main).launch {
-                    store.addPeer(newPeerId, peersData)
+                    HuddleStore.addPeer(newPeerId, peersData)
                 }
                 val remotePeer = RemotePeer(
                     peerId = peerId, role = role
@@ -1562,7 +1550,7 @@ class LocalPeer(
 
                 CoroutineScope(Dispatchers.Main).launch {
                     // store for removePeer
-                    store.removePeer(peerId)
+                    HuddleStore.removePeer(peerId)
                 }
                 val remotePeer = room.getRemotePeerById(peerId)
                 val labels = remotePeer.labels
@@ -1789,7 +1777,7 @@ class LocalPeer(
                     // store for removePeer
                     peer.producersList.orEmpty().forEach { producer ->
                         // store for addPeer
-                        store.addPeer(peerId, JSONObject().apply {
+                        HuddleStore.addPeer(peerId, JSONObject().apply {
                             put("peerId", peerId)
                             put("role", peer.role)
                         })
@@ -1825,7 +1813,7 @@ class LocalPeer(
                 consumers.delete(label, peerId)
                 CoroutineScope(Dispatchers.Main).launch {
                     // store for removePeer
-                    store.removePeer(peerId)
+                    HuddleStore.removePeer(peerId)
                 }
             }
             if (label == "video") camCapturer?.stopCapture()

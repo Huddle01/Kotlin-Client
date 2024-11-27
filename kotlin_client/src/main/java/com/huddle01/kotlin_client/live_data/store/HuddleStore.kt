@@ -10,7 +10,7 @@ import io.github.crow_misia.mediasoup.Consumer
 import org.json.JSONObject
 import org.webrtc.MediaStreamTrack
 
-class RoomStore : ViewModel() {
+object HuddleStore : ViewModel() {
     val roomInfo = SupplierMutableLiveData { RoomInfo() }
     val me =
         SupplierMutableLiveData { Me() }

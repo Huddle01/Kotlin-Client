@@ -1,10 +1,6 @@
 package com.huddle01.kotlin_client.common
 
-import AppDataOuterClass
 import RtpCapabilities
-import RtpParameters
-import SctpCapabilities
-import SdpInfo
 import com.huddle01.kotlin_client.utils.JsonUtils
 import org.json.JSONObject
 import org.webrtc.MediaStreamTrack
@@ -140,7 +136,7 @@ object ProtoParsing {
     }
 
     fun getParsedDtlsParameters(
-        protoDtlsParametersList: List<SdpInfo.ProtoDtlsFingerPrints>, role: String,
+        protoDtlsParametersList: List<SdpInfo.ProtoDtlsFingerPrints>, role: String
     ): String {
         val fingerprints = protoDtlsParametersList.joinToString(",") { protoDtlsParams ->
             """{"algorithm":"${protoDtlsParams.algorithm}","value":"${protoDtlsParams.value}"}"""
@@ -243,7 +239,7 @@ object ProtoParsing {
 
     fun parseRtpCapabilities(
         codecs: List<RtpCapabilities.ProtoRtpCodecCapability>,
-        headerExtensions: List<RtpCapabilities.ProtoRtpHeaderExtension>,
+        headerExtensions: List<RtpCapabilities.ProtoRtpHeaderExtension>
     ): String {
         fun parseCodec(codec: RtpCapabilities.ProtoRtpCodecCapability): String {
 
@@ -264,14 +260,12 @@ object ProtoParsing {
                         }
                     }
                 }
-            } else null
+            } else "null"
+
             val rtcpFeedbackJson = if (codec.rtcpFeedbackList.isNotEmpty()) {
-                codec.rtcpFeedbackList.joinToString(
-                    separator = ",", prefix = "[", postfix = "]"
-                ) { feedback ->
-                    val parameterPart = feedback.parameter?.let { "\"parameter\":\"$it\"," } ?: ""
-                    """{$parameterPart"type":"${feedback.type}"}"""
-                }.replace("\\s".toRegex(), "")
+                codec.rtcpFeedbackList.joinToString(",", "[", "]") { feedback ->
+                    """{"parameter":"${feedback.parameter ?: ""}","type":"${feedback.type}"}"""
+                }
             } else "[]"
 
             return """{
@@ -279,7 +273,7 @@ object ProtoParsing {
             "mimeType":"${codec.mimeType}",
             "preferredPayloadType":${codec.preferredPayloadType},
             "clockRate":${codec.clockRate},
-            "channels":${codec.channels},
+            "channels":${if (codec.channels == 0) "null" else codec.channels},
             "parameters":$parametersJson,
             "rtcpFeedback":$rtcpFeedbackJson
         }""".replace("\\s".toRegex(), "")
@@ -294,16 +288,29 @@ object ProtoParsing {
         }""".replace("\\s".toRegex(), "")
         }
 
-        val codecsJson = codecs.joinToString(
-            separator = ",", prefix = "\"codecs\":[", postfix = "]"
+        val sortedCodecs = codecs.sortedWith(compareBy<RtpCapabilities.ProtoRtpCodecCapability> { codec ->
+            when {
+                codec.mimeType.contains("H264", ignoreCase = true) -> 0
+                codec.mimeType.contains("rtx") && codec.parametersMap["apt"]?.toString()?.toIntOrNull()?.let { apt ->
+                    codecs.find { it.preferredPayloadType == apt }?.mimeType?.contains("H264", ignoreCase = true)
+                } == true -> 1
+                else -> 2
+            }
+        }.thenBy { it.preferredPayloadType })
+
+        val codecsJson = sortedCodecs.joinToString(
+            separator = ",",
+            prefix = "\"codecs\":[",
+            postfix = "]"
         ) { parseCodec(it) }
+
         val headerExtensionsJson = headerExtensions.joinToString(
-            separator = ",", prefix = "\"headerExtensions\":[", postfix = "]"
+            separator = ",",
+            prefix = "\"headerExtensions\":[",
+            postfix = "]"
         ) { parseHeaderExtension(it) }
 
-        return "{$codecsJson,$headerExtensionsJson}".replace(
-            "\\s".toRegex(), ""
-        )
+        return "{$codecsJson,$headerExtensionsJson}".replace("\\s".toRegex(), "")
     }
 
     fun parseRtpParameters(
@@ -311,7 +318,7 @@ object ProtoParsing {
         headerExtensions: List<RtpParameters.ProtoHeaderExtensionParameters>,
         encodings: List<RtpParameters.ProtoEncodings>,
         rtcp: RtpParameters.RtcpParameters,
-        mid: String,
+        mid: String
     ): String {
         val codecsJson = codecs.joinToString(",", "\"codecs\":[", "]", transform = ::parseCodec)
         val headerExtensionsJson = headerExtensions.joinToString(
@@ -327,25 +334,67 @@ object ProtoParsing {
     }
 
     private fun parseCodec(codec: RtpParameters.ProtoCodecParameters): String {
-        val parametersJson =
-            codec.parametersMap.entries.joinToString(",", "{", "}") { (key, value) ->
-                """"$key":${value.toInt()}"""
+        val parametersJson = codec.parametersMap.entries.joinToString(",", "{", "}") { (key, value) ->
+            val formattedValue = when {
+                key == "profile-level-id" -> "\"$value\""
+                value.matches(Regex("-?\\d+")) -> value
+                else -> "\"$value\""
             }
+            "\"$key\":$formattedValue"
+        }
 
         val rtcpFeedbackJson = codec.rtcpFeedbackList.takeIf(List<*>::isNotEmpty)
-            ?.joinToString(",", "[", "]") { """{"type":"${it.type}"}""" }
-
-        return """{"mimeType":"${codec.mimeType}","payloadType":${codec.payloadType},"clockRate":${codec.clockRate},"channels":${codec.channels}${if (parametersJson.isNotEmpty()) ",\"parameters\":$parametersJson" else ""}${if (rtcpFeedbackJson != null) ",\"rtcpFeedback\":$rtcpFeedbackJson" else ""}}"""
+            ?.joinToString(",", "[", "]") { feedback ->
+                buildString {
+                    append("""{"type":"${feedback.type}"""")
+                    if (feedback.parameter.isNotEmpty()) {
+                        append(""","parameter":"${feedback.parameter}"""")
+                    }
+                    append("}")
+                }
+            }
+        return buildString {
+            append("""{"mimeType":"${codec.mimeType}"""")
+            append(""","payloadType":${codec.payloadType}""")
+            append(""","clockRate":${codec.clockRate}""")
+            append(""","channels":${codec.channels}""")
+            if (parametersJson.isNotEmpty()) {
+                append(""","parameters":$parametersJson""")
+            }
+            if (rtcpFeedbackJson != null) {
+                append(""","rtcpFeedback":$rtcpFeedbackJson""")
+            }
+            append("}")
+        }
     }
-
     private fun parseHeaderExtension(header: RtpParameters.ProtoHeaderExtensionParameters): String {
         return """{"uri":"${header.uri}","id":${header.id},"encrypt":${header.encrypt},"parameters":${header.parametersMap}}"""
     }
 
+//    private fun parseEncoding(encoding: RtpParameters.ProtoEncodings): String {
+//        val ssrc = "\"ssrc\":${encoding.ssrc}"
+//        val rtxPart = encoding.rtx?.let { ",\"rtx\":{\"ssrc\":${it.ssrc}}" } ?: ""
+//        return "{$ssrc$rtxPart}"
+//    }
+
     private fun parseEncoding(encoding: RtpParameters.ProtoEncodings): String {
-        val ssrc = "\"ssrc\":${encoding.ssrc}"
-        val rtxPart = encoding.rtx?.let { ",\"rtx\":{\"ssrc\":${it.ssrc}}" } ?: ""
-        return "{$ssrc$rtxPart}"
+        return buildString {
+            append("{\"ssrc\":${encoding.ssrc}")
+
+            encoding.rtx?.let { rtx ->
+                append(",\"rtx\":{\"ssrc\":${rtx.ssrc}}")
+            }
+
+            encoding.maxBitrate?.takeIf { it > 0 }?.let { maxBitrate ->
+                append(",\"maxBitrate\":$maxBitrate")
+            }
+
+            encoding.scalabilityMode?.takeIf { it.isNotEmpty() }?.let { mode ->
+                append(",\"scalabilityMode\":\"$mode\"")
+            }
+
+            append("}")
+        }
     }
 
     private fun parseRtcp(rtcp: RtpParameters.RtcpParameters): String {
