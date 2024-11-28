@@ -272,7 +272,7 @@ class Socket : EventEmitter() {
     /**
      * Closes the underlying socket connection, and clears all the event listeners and subscriptions to events as well as
      */
-    suspend fun close(code: Int, reason: String?, reconnect: Boolean = false) {
+    fun close(code: Int, reason: String?, reconnect: Boolean = false) {
         if ((code in 3000..4999) || code == 1000 || (code == 1001 && !reconnect)) {
             Timber.i("🔌 Closing the connection, $code $reason")
             _ws?.close(code, reason)
