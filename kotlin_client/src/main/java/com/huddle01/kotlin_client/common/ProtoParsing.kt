@@ -298,11 +298,11 @@ object ProtoParsing {
                     codec.mimeType.contains("H264", ignoreCase = true) -> 0
                     codec.mimeType.contains("rtx") && codec.parametersMap["apt"]?.toString()
                         ?.toIntOrNull()?.let { apt ->
-                        codecs.find { it.preferredPayloadType == apt }?.mimeType?.contains(
-                            "H264",
-                            ignoreCase = true
-                        )
-                    } == true -> 1
+                            codecs.find { it.preferredPayloadType == apt }?.mimeType?.contains(
+                                "H264",
+                                ignoreCase = true
+                            )
+                        } == true -> 1
 
                     else -> 2
                 }

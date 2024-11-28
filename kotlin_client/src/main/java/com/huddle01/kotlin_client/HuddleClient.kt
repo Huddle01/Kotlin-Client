@@ -2,8 +2,8 @@ package com.huddle01.kotlin_client
 
 import RequestOuterClass.Request
 import android.content.Context
-import com.huddle01.kotlin_client.core.Room
 import com.huddle01.kotlin_client.core.LocalPeer
+import com.huddle01.kotlin_client.core.Room
 import com.huddle01.kotlin_client.core.Socket
 import com.huddle01.kotlin_client.models.enum_class.ConnectionState
 import com.huddle01.kotlin_client.models.enum_class.RoomStates
@@ -79,7 +79,7 @@ class HuddleClient(projectId: String, context: Context) {
 
     init {
         enableLogs()
-        initSDKConnection(application = context.applicationContext as  android.app.Application)
+        initSDKConnection(application = context.applicationContext as android.app.Application)
         Timber.i("✅ Initializing HuddleClient")
         this.projectId = projectId
         _socket = Socket.getInstance()
@@ -169,7 +169,7 @@ class HuddleClient(projectId: String, context: Context) {
         Timber.plant(Timber.DebugTree())
     }
 
-    private fun initSDKConnection(application:  android.app.Application) {
+    private fun initSDKConnection(application: android.app.Application) {
         MediasoupClient.initialize(
             context = application,
             logHandler = object : LogHandler {
