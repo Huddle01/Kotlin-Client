@@ -2,8 +2,8 @@ package com.huddle01.kotlin_client
 
 import RequestOuterClass.Request
 import android.content.Context
-import com.huddle01.kotlin_client.core.LocalPeer
 import com.huddle01.kotlin_client.core.Room
+import com.huddle01.kotlin_client.core.LocalPeer
 import com.huddle01.kotlin_client.core.Socket
 import com.huddle01.kotlin_client.models.enum_class.ConnectionState
 import com.huddle01.kotlin_client.models.enum_class.RoomStates
@@ -79,7 +79,7 @@ class HuddleClient(projectId: String, context: Context) {
 
     init {
         enableLogs()
-        initSDKConnection(application = context.applicationContext as android.app.Application)
+        initSDKConnection(application = context.applicationContext as  android.app.Application)
         Timber.i("✅ Initializing HuddleClient")
         this.projectId = projectId
         _socket = Socket.getInstance()
@@ -107,41 +107,52 @@ class HuddleClient(projectId: String, context: Context) {
      * This method connects to socket, creates a room, and then connects to the room
      */
     suspend fun joinRoom(roomId: String, token: String): Room {
-        Timber.i("Join the room with roomId: $roomId")
+        when {
+            localPeer.store.roomInfo.value?.connectionState?.let { it != RoomStates.IDLE } == true -> {
+                Timber.i("❌ Room state is not IDLE")
+                return room
+            }
 
-        if (socket.connectionState == ConnectionState.CONNECTING) {
-            Timber.w("Socket is already connecting, waiting for the connection to be established")
-            return room
+            socket.connectionState == ConnectionState.CONNECTING -> {
+                Timber.w("Socket is already connecting, waiting for connection")
+                return room
+            }
+
+            localPeer.store.roomInfo.value?.connectionState == RoomStates.CONNECTING -> {
+                Timber.w("🔔 Room join already in progress")
+                return room
+            }
+
+            localPeer.joined -> {
+                Timber.w("Already joined the room")
+                return room
+            }
         }
 
-        if (room.state == RoomStates.CONNECTING) {
-            Timber.w("🔔 Room join already in progress")
-            return room
-        }
+        Timber.i("Joining room: $roomId")
 
-        if (localPeer.joined) {
-            Timber.w("Already joined the room")
-            return room
-        }
         return try {
             socket.connect(token)
-            Timber.i("✅ Socket Connection Established")
-            room.roomId = roomId
-            Timber.i("🚪 Room Id => ${room.roomId}")
-            val room: Room = this.room.connect()
-            Timber.i("🚪 Room Connection Established")
-            room
+            Timber.i("✅ Socket connection established")
+
+            room.apply {
+                this.roomId = roomId
+                Timber.i("🚪 Room ID set: $roomId")
+            }
+
+            room.connect().also {
+                Timber.i("🚪 Room connection established")
+            }
         } catch (error: Throwable) {
-            Timber.e("🔴 Error While Joining the Room => $error")
+            Timber.e("🔴 Error joining room: ${error.message}", error)
             throw error
         }
     }
 
-
     /**
      * Leave the room and disconnect from the socket
      */
-    suspend fun leaveRoom() {
+    fun leaveRoom() {
         Timber.i("Leaving the room")
         socket.close(ESocketCloseCode.NORMAL_CLOSURE.value, null)
     }
@@ -158,7 +169,7 @@ class HuddleClient(projectId: String, context: Context) {
         Timber.plant(Timber.DebugTree())
     }
 
-    private fun initSDKConnection(application: android.app.Application) {
+    private fun initSDKConnection(application:  android.app.Application) {
         MediasoupClient.initialize(
             context = application,
             logHandler = object : LogHandler {

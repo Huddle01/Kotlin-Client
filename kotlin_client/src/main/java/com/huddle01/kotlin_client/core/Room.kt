@@ -2,6 +2,7 @@ package com.huddle01.kotlin_client.core
 
 import RequestOuterClass.Request
 import ResponseOuterClass
+import com.huddle01.kotlin_client.live_data.store.HuddleStore
 import com.huddle01.kotlin_client.models.LobbyPeer
 import com.huddle01.kotlin_client.models.RoomConfig
 import com.huddle01.kotlin_client.models.RoomStats
@@ -202,6 +203,8 @@ class Room(
         return _metadata?.let { JsonUtils.toJsonObject(it) }
     }
 
+    private val store: HuddleStore = HuddleStore.getInstance()
+
     /**
      * Update Metadata of the room
      * @throws { Error } If Request Failed to Update Metadata
@@ -353,6 +356,7 @@ class Room(
         Timber.i("🔔 Connecting to the room")
         socket.publish(Request.RequestCase.CONNECT_ROOM, mapOf("roomId" to roomId as String))
         state = RoomStates.CONNECTING
+        store.setRoomState(RoomStates.CONNECTING)
         emit("room-connecting")
         return roomInstance
     }

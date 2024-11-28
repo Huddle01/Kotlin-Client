@@ -7,16 +7,35 @@ import com.huddle01.kotlin_client.live_data.store.models.Peers
 import com.huddle01.kotlin_client.live_data.store.models.RoomInfo
 import com.huddle01.kotlin_client.models.enum_class.RoomStates
 import io.github.crow_misia.mediasoup.Consumer
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.webrtc.MediaStreamTrack
 
-object HuddleStore : ViewModel() {
+class HuddleStore : ViewModel() {
+
     val roomInfo = SupplierMutableLiveData { RoomInfo() }
     val me =
         SupplierMutableLiveData { Me() }
     val peers = SupplierMutableLiveData { Peers() }
+
+    companion object {
+
+        private var instance: HuddleStore? = null
+
+        fun getInstance(): HuddleStore {
+            return instance ?: synchronized(this) {
+                instance ?: HuddleStore().also { instance = it }
+            }
+        }
+
+        fun destroy() {
+            instance?.let {
+                it.me.postValue { Me() }
+                it.peers.postValue { Peers() }
+                it.roomInfo.postValue { RoomInfo() }
+                instance = null
+            }
+        }
+    }
 
     fun setRoomId(roomId: String) {
         roomInfo.postValue {
@@ -29,8 +48,7 @@ object HuddleStore : ViewModel() {
         if (RoomStates.CLOSED == state) {
             peers.postValue { it.clear() }
             me.postValue { it.clear() }
-            runBlocking { delay(1500) }
-            roomInfo.postValue { it.connectionState = RoomStates.IDLE }
+            destroy()
         }
     }
 

@@ -104,6 +104,8 @@ class Socket : EventEmitter() {
      */
     var token: String? = null
 
+    private val store: HuddleStore = HuddleStore.getInstance()
+
     /**
      * Returns the underlying WebSocket connection, throws an error if the connection is not initialized
      */
@@ -281,13 +283,13 @@ class Socket : EventEmitter() {
             _endpoint = null
 
             emit("token-updated")
+            store.setRoomState(RoomStates.CLOSED)
 
             connectionState = ConnectionState.CLOSED
 
             emit("closed", code)
 
             Timber.i("🔌 WebSocket Connection closed")
-            HuddleStore.setRoomState(RoomStates.CLOSED)
 
             return
         }
@@ -539,6 +541,7 @@ class Socket : EventEmitter() {
         Timber.i("🔔 Socket connection closed emitted")
         connectionState = ConnectionState.CLOSED
         this.close(code, reason)
+        store.setRoomState(RoomStates.IDLE)
     }
 
     /**
