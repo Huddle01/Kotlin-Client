@@ -31,7 +31,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.huddle01.kotlin_client.common.EnhancedMap
 import com.huddle01.kotlin_client.common.ProtoParsing
-import com.huddle01.kotlin_client.constants.maxDataMessageSize
+import com.huddle01.kotlin_client.constants.SDKConstants
 import com.huddle01.kotlin_client.live_data.store.HuddleStore
 import com.huddle01.kotlin_client.models.ProduceSources
 import com.huddle01.kotlin_client.models.RoomConfig
@@ -293,7 +293,7 @@ class LocalPeer(
             throw Exception("❌ Cannot Send Data, Permission Denied")
         }
 
-        if (estimateSize(data.payload) > maxDataMessageSize) {
+        if (estimateSize(data.payload) > SDKConstants.MAX_DATA_MESSAGE_SIZE) {
             Timber.e("❌ Data message exceeds 1kb in size")
             return Pair(false, "Data message exceeds 1kb in size")
         }
