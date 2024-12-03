@@ -22,6 +22,7 @@ import RequestOuterClass.UpdatePeerRole
 import RequestOuterClass.UpdateRoomMetadata
 import ResponseOuterClass.Response
 import com.huddle01.kotlin_client.common.ProtoParsing
+import com.huddle01.kotlin_client.constants.SDKConstants
 import com.huddle01.kotlin_client.live_data.store.HuddleStore
 import com.huddle01.kotlin_client.models.GeoData
 import com.huddle01.kotlin_client.models.GeoLocation
@@ -104,7 +105,16 @@ class Socket : EventEmitter() {
      */
     var token: String? = null
 
-    private val store: HuddleStore = HuddleStore.getInstance()
+    /**
+     * Platform of the current socket connection, specific to the Local Peer who joined the meeting
+     */
+    private var platformVersion: String = SDKConstants.SDK_VERSION
+        get() {
+            return field
+        }
+        set(value) {
+            field = value
+        }
 
     /**
      * Returns the underlying WebSocket connection, throws an error if the connection is not initialized
@@ -171,6 +181,9 @@ class Socket : EventEmitter() {
         emit("region-updated", region)
     }
 
+    // huddle-store
+    private val store: HuddleStore = HuddleStore.getInstance()
+
     private suspend fun getGeoData(): GeoData {
         return withContext(Dispatchers.IO) {
             val url = URL("https://shinigami.huddle01.com/api/get-geolocation")
@@ -228,7 +241,9 @@ class Socket : EventEmitter() {
             val geoData = getGeoData()
             this._geoData = geoData
         }
-        val url = geoData?.let { getConfigUrl(token, it.region, it.country) }
+        val url = geoData?.let {
+            getConfigUrl(token, it.region, it.country, platformVersion)
+        }
 
         Timber.i("Region -> $geoData | URL -> $url")
         this.connectionState = ConnectionState.CONNECTING
@@ -405,8 +420,7 @@ class Socket : EventEmitter() {
             Request.RequestCase.CONSUME -> {
                 val appData = incomingData?.get("appData").toString()
                 message.consume =
-                    Consume.newBuilder()
-                        .setProducerId(incomingData?.get("producerId") as? String)
+                    Consume.newBuilder().setProducerId(incomingData?.get("producerId") as? String)
                         .setProducerPeerId(incomingData?.get("producerPeerId") as? String)
                         .setAppData(ProtoParsing.parseProtoAppData(appData)).build()
             }
@@ -430,27 +444,25 @@ class Socket : EventEmitter() {
 
             Request.RequestCase.RESUME_PRODUCER -> message.resumeProducer =
                 ResumeProducer.newBuilder()
-                    .setProducerId(incomingData?.get("producerId") as? String)
-                    .build()
+                    .setProducerId(incomingData?.get("producerId") as? String).build()
 
             Request.RequestCase.PAUSE_PRODUCER -> message.pauseProducer =
                 PauseProducer.newBuilder().setProducerId(incomingData?.get("producerId") as? String)
                     .build()
 
-            Request.RequestCase.SEND_DATA -> message.sendData =
-                SendData.newBuilder().apply {
-                    val toList = incomingData?.get("to") as? ArrayList<*>
-                    if (toList != null && toList.isNotEmpty()) {
-                        for ((index, toValue) in toList.withIndex()) {
-                            while (toCount <= index) {
-                                addTo("")
-                            }
-                            setTo(index, toValue.toString())
+            Request.RequestCase.SEND_DATA -> message.sendData = SendData.newBuilder().apply {
+                val toList = incomingData?.get("to") as? ArrayList<*>
+                if (toList != null && toList.isNotEmpty()) {
+                    for ((index, toValue) in toList.withIndex()) {
+                        while (toCount <= index) {
+                            addTo("")
                         }
+                        setTo(index, toValue.toString())
                     }
-                    setPayload(incomingData?.get("payload") as? String ?: "")
-                    setLabel(incomingData?.get("label") as? String ?: "")
-                }.build()
+                }
+                setPayload(incomingData?.get("payload") as? String ?: "")
+                setLabel(incomingData?.get("label") as? String ?: "")
+            }.build()
 
             else -> throw IllegalArgumentException("Invalid request case: $event")
         }
@@ -472,47 +484,51 @@ class Socket : EventEmitter() {
     /**
      * Get the config url for the socket connection based on the token and region
      */
-    private suspend fun getConfigUrl(token: String, region: String, country: String): String =
-        withContext(Dispatchers.IO) {
-            if (_endpoint != null) return@withContext _endpoint!!
+    private suspend fun getConfigUrl(
+        token: String,
+        region: String,
+        country: String,
+        version: String,
+    ): String = withContext(Dispatchers.IO) {
+        if (_endpoint != null) return@withContext _endpoint!!
 
-            val apiServerUrl = "https://apira.huddle01.media/api/v1/getSushiUrl"
-            var connection: HttpURLConnection? = null
+        val apiServerUrl = "https://apira.huddle01.media/api/v1/getSushiUrl"
+        var connection: HttpURLConnection? = null
 
-            try {
-                val url = URL(apiServerUrl)
-                connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.setRequestProperty("Authorization", "Bearer $token")
-                connection.connectTimeout = 5000
-                connection.readTimeout = 5000
+        try {
+            val url = URL(apiServerUrl)
+            connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("Authorization", "Bearer $token")
+            connection.connectTimeout = 5000
+            connection.readTimeout = 5000
 
-                val responseCode = connection.responseCode
-                if (responseCode != HttpURLConnection.HTTP_OK) {
-                    throw Exception("🔴 Error while fetching the configuration URL: $responseCode")
-                }
-
-                val response = connection.inputStream.bufferedReader().use { it.readText() }
-                val responseData = JsonUtils.toJsonObject(response)
-                val urlString = responseData["url"] as String
-
-                _endpoint = urlString.replaceFirst("https://", "wss://")
-                    .replaceFirst("http://", "ws://")
-                val wssAddress = "$_endpoint/ws"
-                val wsAddress = "$wssAddress?${
-                    listOf(
-                        "token=$token", "version=2", "region=$region", "country=$country"
-                    ).joinToString("&")
-                }"
-                _endpoint = wsAddress
-                return@withContext wsAddress
-            } catch (err: Throwable) {
-                Timber.e("getConfigUrl() | Error: $err")
-                throw err
-            } finally {
-                connection?.disconnect()
+            val responseCode = connection.responseCode
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                throw Exception("🔴 Error while fetching the configuration URL: $responseCode")
             }
+
+            val response = connection.inputStream.bufferedReader().use { it.readText() }
+            val responseData = JsonUtils.toJsonObject(response)
+            val urlString = responseData["url"] as String
+
+            _endpoint =
+                urlString.replaceFirst("https://", "wss://").replaceFirst("http://", "ws://")
+            val wssAddress = "$_endpoint/ws"
+            val wsAddress = "$wssAddress?${
+                listOf(
+                    "token=$token", "version=${version}", "region=$region", "country=$country"
+                ).joinToString("&")
+            }"
+            _endpoint = wsAddress
+            return@withContext wsAddress
+        } catch (err: Throwable) {
+            Timber.e("getConfigUrl() | Error: $err")
+            throw err
+        } finally {
+            connection?.disconnect()
         }
+    }
 
     /**
      * Handle the incoming message from the server based on the events received from the server and call the subscribed event handler
