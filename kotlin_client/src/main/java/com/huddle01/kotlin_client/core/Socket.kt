@@ -517,7 +517,7 @@ class Socket : EventEmitter() {
             val wssAddress = "$_endpoint/ws"
             val wsAddress = "$wssAddress?${
                 listOf(
-                    "token=$token", "version=${version}", "region=$region", "country=$country"
+                    "token=$token", "version=kotlin@${version}", "region=$region", "country=$country"
                 ).joinToString("&")
             }"
             _endpoint = wsAddress
