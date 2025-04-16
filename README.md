@@ -1,6 +1,5 @@
 # Huddle01 Kotlin SDK
 
-![https://huddle01-assets-frontend.s3.amazonaws.com/general/huddle01-logo-blue.svg](https://huddle01-assets-frontend.s3.amazonaws.com/general/huddle01-logo-blue.svg)
 
 <p align="center">
   <strong>People-powered
